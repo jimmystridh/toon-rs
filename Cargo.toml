@@ -1,0 +1,8 @@
+[workspace]
+members = ["crates/toon", "crates/toon-cli"]
+resolver = "2"
+
+[workspace.package]
+edition = "2024"
+rust-version = "1.85"
+license = "MIT"

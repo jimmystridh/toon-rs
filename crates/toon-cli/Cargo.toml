@@ -1,0 +1,30 @@
+[package]
+name = "toon-cli"
+version = "0.1.0"
+description = "CLI for JSON ↔ TOON conversion"
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+readme = "README.md"
+autobins = false
+homepage = "https://toonformat.dev"
+repository = "https://github.com/toon-format/toon"
+keywords = ["toon", "serialization", "cli"]
+categories = ["command-line-utilities"]
+
+[[bin]]
+name = "toon-cli"
+path = "src/main.rs"
+
+[dependencies]
+anyhow = "1.0"
+clap = { version = "4.5", features = ["derive"] }
+serde = { version = "1.0", features = ["derive"] }
+serde_json = "1.0"
+toon = { path = "../toon", features = ["serde"] }
+
+[dev-dependencies]
+assert_cmd = "2.0"
+predicates = "3.1"
+tempfile = "3.12"
+serde_json = "1.0"
