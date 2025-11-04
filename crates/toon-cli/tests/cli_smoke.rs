@@ -5,7 +5,7 @@ use tempfile::NamedTempFile;
 
 #[test]
 fn help_works() -> Result<(), Box<dyn std::error::Error>> {
-Command::new(assert_cmd::cargo::cargo_bin!("toon-cli"))
+    Command::new(assert_cmd::cargo::cargo_bin!("toon-cli"))
         .arg("--help")
         .assert()
         .success();
@@ -18,7 +18,7 @@ fn encode_outputs_toon_like_syntax() -> Result<(), Box<dyn std::error::Error>> {
     let mut tmp = NamedTempFile::new()?;
     write!(tmp, "{}", input)?;
 
-let output = Command::new(assert_cmd::cargo::cargo_bin!("toon-cli"))
+    let output = Command::new(assert_cmd::cargo::cargo_bin!("toon-cli"))
         .arg(tmp.path())
         .output()?;
     assert!(output.status.success());
@@ -37,7 +37,7 @@ fn decode_toon_to_json() -> Result<(), Box<dyn std::error::Error>> {
     let mut tmp = NamedTempFile::new()?;
     write!(tmp, "{}", input)?;
 
-let output = Command::new(assert_cmd::cargo::cargo_bin!("toon-cli"))
+    let output = Command::new(assert_cmd::cargo::cargo_bin!("toon-cli"))
         .arg("--decode")
         .arg(tmp.path())
         .output()?;

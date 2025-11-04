@@ -1,10 +1,13 @@
 #![allow(dead_code)]
 
 #[cfg(not(feature = "std"))]
-use alloc::{boxed::Box, string::{String, ToString}, vec::Vec};
+use alloc::{
+    string::{String, ToString},
+    vec::Vec,
+};
 
 #[cfg(feature = "std")]
-use std::{boxed::Box, string::String, vec::Vec};
+use std::{string::String, vec::Vec};
 
 #[derive(Debug, Clone, PartialEq)]
 pub enum Number {
@@ -35,6 +38,9 @@ pub enum Value {
 
 impl Value {
     pub fn is_primitive(&self) -> bool {
-        matches!(self, Value::Null | Value::Bool(_) | Value::Number(_) | Value::String(_))
+        matches!(
+            self,
+            Value::Null | Value::Bool(_) | Value::Number(_) | Value::String(_)
+        )
     }
 }

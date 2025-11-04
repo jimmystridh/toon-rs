@@ -4,17 +4,17 @@
 #[cfg(not(feature = "std"))]
 extern crate alloc;
 
+pub mod encode;
 pub mod error;
 pub mod options;
-pub mod encode;
 pub mod value;
 
 pub mod decode;
 
 #[cfg(feature = "serde")]
-pub mod ser;
-#[cfg(feature = "serde")]
 pub mod de;
+#[cfg(feature = "serde")]
+pub mod ser;
 
 pub use crate::error::{Error, Result};
 pub use crate::options::{Delimiter, Options};
@@ -26,7 +26,7 @@ use alloc::string::String;
 use std::io::{Read, Write};
 
 #[cfg(feature = "serde")]
-use serde::{de::DeserializeOwned, Serialize};
+use serde::{Serialize, de::DeserializeOwned};
 
 #[cfg(feature = "serde")]
 pub fn encode_to_string<T: Serialize>(value: &T, options: &Options) -> Result<String> {
@@ -34,7 +34,11 @@ pub fn encode_to_string<T: Serialize>(value: &T, options: &Options) -> Result<St
 }
 
 #[cfg(all(feature = "serde", feature = "std"))]
-pub fn encode_to_writer<W: Write, T: Serialize>(mut writer: W, value: &T, options: &Options) -> Result<()> {
+pub fn encode_to_writer<W: Write, T: Serialize>(
+    mut writer: W,
+    value: &T,
+    options: &Options,
+) -> Result<()> {
     let s = encode_to_string(value, options)?;
     writer.write_all(s.as_bytes())?;
     Ok(())
@@ -47,7 +51,10 @@ pub fn decode_from_str<T: DeserializeOwned>(s: &str, options: &Options) -> Resul
 }
 
 #[cfg(all(feature = "serde", feature = "std"))]
-pub fn decode_from_reader<R: Read, T: DeserializeOwned>(mut reader: R, options: &Options) -> Result<T> {
+pub fn decode_from_reader<R: Read, T: DeserializeOwned>(
+    mut reader: R,
+    options: &Options,
+) -> Result<T> {
     let mut s = String::new();
     reader.read_to_string(&mut s)?;
     decode_from_str(&s, options)

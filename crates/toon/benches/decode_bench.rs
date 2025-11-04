@@ -1,4 +1,4 @@
-use criterion::{black_box, criterion_group, criterion_main, BatchSize, Criterion, Throughput};
+use criterion::{BatchSize, Criterion, Throughput, black_box, criterion_group, criterion_main};
 use std::{fs, path::PathBuf};
 
 fn fixtures_decode() -> Vec<(String, String)> {
@@ -16,7 +16,10 @@ fn fixtures_decode() -> Vec<(String, String)> {
         }
     }
     if out.is_empty() {
-        out.push(("small".into(), "a: 1\nb:\n  - true\n  - \"x\"\n".to_string()));
+        out.push((
+            "small".into(),
+            "a: 1\nb:\n  - true\n  - \"x\"\n".to_string(),
+        ));
         out.push(("tabular_1k".into(), make_tabular_toons(1000)));
     }
     out
@@ -26,8 +29,12 @@ fn find_fixtures(kind: &str) -> Option<PathBuf> {
     let mut dir = std::env::current_dir().ok()?;
     loop {
         let p = dir.join("spec/tests/fixtures").join(kind);
-        if p.exists() { return Some(p); }
-        if !dir.pop() { break; }
+        if p.exists() {
+            return Some(p);
+        }
+        if !dir.pop() {
+            break;
+        }
     }
     None
 }
@@ -35,7 +42,9 @@ fn find_fixtures(kind: &str) -> Option<PathBuf> {
 fn make_tabular_toons(rows: usize) -> String {
     let mut s = String::new();
     s.push_str("rows:\n  @, a, b\n");
-    for i in 0..rows { s.push_str(&format!("  - {}, {}\n", i, i + 1)); }
+    for i in 0..rows {
+        s.push_str(&format!("  - {}, {}\n", i, i + 1));
+    }
     s
 }
 
@@ -48,7 +57,8 @@ pub fn decode_benchmarks(c: &mut Criterion) {
             b.iter_batched(
                 || toon.clone(),
                 |s| {
-                    let v: serde_json::Value = toon::decode_from_str(&s, &toon::Options::default()).unwrap();
+                    let v: serde_json::Value =
+                        toon::decode_from_str(&s, &toon::Options::default()).unwrap();
                     black_box(v)
                 },
                 BatchSize::SmallInput,

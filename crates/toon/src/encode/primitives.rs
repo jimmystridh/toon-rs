@@ -17,7 +17,9 @@ fn is_control(c: char) -> bool {
 }
 
 fn looks_like_literal(s: &str) -> bool {
-    if matches!(s, "true" | "false" | "null") { return true; }
+    if matches!(s, "true" | "false" | "null") {
+        return true;
+    }
     let sn = s.trim();
     if sn.starts_with('+') || sn.starts_with('-') {
         return sn[1..].parse::<f64>().is_ok();
@@ -26,13 +28,27 @@ fn looks_like_literal(s: &str) -> bool {
 }
 
 pub fn needs_quotes(s: &str, delim: Delimiter) -> bool {
-    if s.is_empty() { return true; }
-    if s.starts_with('-') && s.len() >= 2 && s.as_bytes()[1] == b' ' { return true; }
-    if s.starts_with(' ') || s.ends_with(' ') { return true; }
-    if s.contains(delimiter_char(delim)) { return true; }
-    if s.contains(':') { return true; }
-    if s.chars().any(|c| c == '"' || c == '\\' || is_control(c)) { return true; }
-    if looks_like_literal(s) { return true; }
+    if s.is_empty() {
+        return true;
+    }
+    if s.starts_with('-') && s.len() >= 2 && s.as_bytes()[1] == b' ' {
+        return true;
+    }
+    if s.starts_with(' ') || s.ends_with(' ') {
+        return true;
+    }
+    if s.contains(delimiter_char(delim)) {
+        return true;
+    }
+    if s.contains(':') {
+        return true;
+    }
+    if s.chars().any(|c| c == '"' || c == '\\' || is_control(c)) {
+        return true;
+    }
+    if looks_like_literal(s) {
+        return true;
+    }
     false
 }
 
@@ -41,11 +57,23 @@ pub fn escape_and_quote(s: &str) -> String {
     out.push('"');
     for ch in s.chars() {
         match ch {
-            '"' => { out.push('\\'); out.push('"'); }
-            '\\' => { out.push('\\'); out.push('\\'); }
-            '\n' => { out.push_str("\\n"); }
-            '\r' => { out.push_str("\\r"); }
-            '\t' => { out.push_str("\\t"); }
+            '"' => {
+                out.push('\\');
+                out.push('"');
+            }
+            '\\' => {
+                out.push('\\');
+                out.push('\\');
+            }
+            '\n' => {
+                out.push_str("\\n");
+            }
+            '\r' => {
+                out.push_str("\\r");
+            }
+            '\t' => {
+                out.push_str("\\t");
+            }
             c if is_control(c) => {
                 use core::fmt::Write as _;
                 let _ = write!(out, "\\u{:04X}", c as u32);
@@ -65,6 +93,10 @@ pub fn format_string(s: &str, delim: Delimiter) -> String {
     }
 }
 
-pub fn format_bool(b: bool) -> &'static str { if b { "true" } else { "false" } }
+pub fn format_bool(b: bool) -> &'static str {
+    if b { "true" } else { "false" }
+}
 
-pub fn format_null() -> &'static str { "null" }
+pub fn format_null() -> &'static str {
+    "null"
+}

@@ -19,6 +19,9 @@ pub struct Options {
 
 impl Default for Options {
     fn default() -> Self {
-        Self { delimiter: Delimiter::Comma, strict: false }
+        Self {
+            delimiter: Delimiter::Comma,
+            strict: false,
+        }
     }
 }

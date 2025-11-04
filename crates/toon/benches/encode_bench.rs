@@ -1,4 +1,4 @@
-use criterion::{black_box, criterion_group, criterion_main, BatchSize, Criterion, Throughput};
+use criterion::{BatchSize, Criterion, Throughput, black_box, criterion_group, criterion_main};
 use serde_json::Value;
 use std::{fs, path::PathBuf};
 
@@ -31,29 +31,44 @@ fn find_fixtures(kind: &str) -> Option<PathBuf> {
     let mut dir = std::env::current_dir().ok()?;
     loop {
         let p = dir.join("spec/tests/fixtures").join(kind);
-        if p.exists() { return Some(p); }
-        if !dir.pop() { break; }
+        if p.exists() {
+            return Some(p);
+        }
+        if !dir.pop() {
+            break;
+        }
     }
     None
 }
 
-fn json_small() -> Value { serde_json::json!({"a":1,"b":[true,"x"]}) }
+fn json_small() -> Value {
+    serde_json::json!({"a":1,"b":[true,"x"]})
+}
 
 fn json_tabular(rows: usize, keys: usize) -> Value {
     let mut arr = Vec::with_capacity(rows);
     for i in 0..rows {
         let mut obj = serde_json::Map::with_capacity(keys);
-        for k in 0..keys { obj.insert(format!("k{}", k), Value::from((i + k) as i64)); }
+        for k in 0..keys {
+            obj.insert(format!("k{}", k), Value::from((i + k) as i64));
+        }
         arr.push(Value::Object(obj));
     }
-    Value::Object(serde_json::Map::from_iter([(String::from("rows"), Value::Array(arr))]))
+    Value::Object(serde_json::Map::from_iter([(
+        String::from("rows"),
+        Value::Array(arr),
+    )]))
 }
 
 fn json_nested(depth: usize, breadth: usize) -> Value {
     fn rec(d: usize, b: usize) -> Value {
-        if d == 0 { return Value::from(1); }
+        if d == 0 {
+            return Value::from(1);
+        }
         let mut m = serde_json::Map::new();
-        for i in 0..b { m.insert(format!("k{}", i), rec(d - 1, b)); }
+        for i in 0..b {
+            m.insert(format!("k{}", i), rec(d - 1, b));
+        }
         Value::Object(m)
     }
     rec(depth, breadth)
@@ -79,7 +94,8 @@ pub fn encode_benchmarks(c: &mut Criterion) {
             b.iter_batched(
                 || v.clone(),
                 |vv| {
-                    let out = toon::ser::to_string_streaming(&vv, &toon::Options::default()).unwrap();
+                    let out =
+                        toon::ser::to_string_streaming(&vv, &toon::Options::default()).unwrap();
                     black_box(out)
                 },
                 BatchSize::SmallInput,

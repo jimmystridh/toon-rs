@@ -1,19 +1,31 @@
-use criterion::{black_box, criterion_group, criterion_main, BatchSize, Criterion, Throughput};
-use rand::{rngs::StdRng, Rng, SeedableRng};
+use criterion::{BatchSize, Criterion, Throughput, black_box, criterion_group, criterion_main};
+use rand::{Rng, SeedableRng, rngs::StdRng};
 use serde::{Deserialize, Serialize};
 
 #[derive(Debug, Serialize, Deserialize, Clone)]
-struct Row { a: u32, b: String, c: bool }
+struct Row {
+    a: u32,
+    b: String,
+    c: bool,
+}
 
 #[derive(Debug, Serialize, Deserialize, Clone)]
-struct Data { rows: Vec<Row> }
+struct Data {
+    rows: Vec<Row>,
+}
 
 fn gen_data(n: usize) -> Data {
     let mut rng = StdRng::seed_from_u64(42);
     let mut rows = Vec::with_capacity(n);
     for i in 0..n as u32 {
-let s = (0..8).map(|_| (b'a' + (rng.r#gen::<u8>() % 26)) as char).collect::<String>();
-        rows.push(Row { a: i, b: s, c: rng.gen_bool(0.5) });
+        let s = (0..8)
+            .map(|_| (b'a' + (rng.r#gen::<u8>() % 26)) as char)
+            .collect::<String>();
+        rows.push(Row {
+            a: i,
+            b: s,
+            c: rng.gen_bool(0.5),
+        });
     }
     Data { rows }
 }
@@ -28,7 +40,8 @@ pub fn stream_benchmarks(c: &mut Criterion) {
             b.iter_batched(
                 || data.clone(),
                 |d| {
-                    let out = toon::ser::to_string_streaming(&d, &toon::Options::default()).unwrap();
+                    let out =
+                        toon::ser::to_string_streaming(&d, &toon::Options::default()).unwrap();
                     black_box(out)
                 },
                 BatchSize::SmallInput,

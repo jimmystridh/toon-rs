@@ -6,10 +6,14 @@ pub struct LineWriter {
 }
 
 impl LineWriter {
-    pub fn new() -> Self { Self { out: String::new() } }
+    pub fn new() -> Self {
+        Self { out: String::new() }
+    }
 
     fn write_indent(&mut self, indent: usize) {
-        for _ in 0..indent { self.out.push(' '); }
+        for _ in 0..indent {
+            self.out.push(' ');
+        }
     }
 
     pub fn line(&mut self, indent: usize, s: &str) {
@@ -40,5 +44,7 @@ impl LineWriter {
         self.out.push('\n');
     }
 
-    pub fn into_string(self) -> String { self.out }
+    pub fn into_string(self) -> String {
+        self.out
+    }
 }

@@ -22,6 +22,15 @@ fn de_typed_struct_via_deserializer() -> Result<(), Box<dyn std::error::Error>> 
 
     // Typed path via our Deserializer
     let u: Wrapper = toon::de::from_str(s, &opts)?;
-    assert_eq!(u, Wrapper { user: User { id: 1, name: "Ada".into(), flags: vec![true, false] } });
+    assert_eq!(
+        u,
+        Wrapper {
+            user: User {
+                id: 1,
+                name: "Ada".into(),
+                flags: vec![true, false]
+            }
+        }
+    );
     Ok(())
 }

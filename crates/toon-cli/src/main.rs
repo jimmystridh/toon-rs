@@ -6,10 +6,18 @@ use anyhow::Result;
 use clap::{Parser, ValueEnum};
 
 #[derive(Debug, Clone, Copy, ValueEnum)]
-enum DelimArg { Comma, Tab, Pipe }
+enum DelimArg {
+    Comma,
+    Tab,
+    Pipe,
+}
 
 #[derive(Parser, Debug)]
-#[command(name = "toon-cli", about = "CLI for JSON ↔ TOON conversion (WIP)", version)]
+#[command(
+    name = "toon-cli",
+    about = "CLI for JSON ↔ TOON conversion (WIP)",
+    version
+)]
 struct Args {
     /// Decode TOON to JSON (default encodes JSON to TOON)
     #[arg(short, long)]
@@ -50,7 +58,10 @@ fn main() -> Result<()> {
         DelimArg::Tab => toon::Delimiter::Tab,
         DelimArg::Pipe => toon::Delimiter::Pipe,
     };
-    let options = toon::Options { delimiter, strict: args.strict };
+    let options = toon::Options {
+        delimiter,
+        strict: args.strict,
+    };
 
     if args.decode {
         let value: serde_json::Value = toon::decode_from_str(&buf, &options)?;

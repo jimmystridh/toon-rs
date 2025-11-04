@@ -1,8 +1,10 @@
 #![cfg(feature = "chrono")]
-use chrono::{DateTime, Utc, TimeZone};
+use chrono::{DateTime, TimeZone, Utc};
 
 #[derive(serde::Serialize)]
-struct WithDate { ts: DateTime<Utc> }
+struct WithDate {
+    ts: DateTime<Utc>,
+}
 
 #[test]
 fn chrono_datetime_serializes_as_string() {

@@ -24,7 +24,10 @@ pub enum Error {
 #[cfg(not(feature = "std"))]
 #[derive(Debug)]
 pub enum Error {
-    Syntax { line: usize, message: alloc::string::String },
+    Syntax {
+        line: usize,
+        message: alloc::string::String,
+    },
     Message(alloc::string::String),
 }
 

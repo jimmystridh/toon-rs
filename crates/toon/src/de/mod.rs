@@ -3,19 +3,27 @@
 #[cfg(not(feature = "std"))]
 use alloc::{format, string::String, vec::Vec};
 
-use serde::de::{self, DeserializeOwned, IntoDeserializer, Visitor, SeqAccess, MapAccess};
+use serde::de::{self, DeserializeOwned, IntoDeserializer, MapAccess, SeqAccess};
 
-use crate::{options::Options, Result};
-use crate::value::{Value, Number};
+use crate::value::{Number, Value};
+use crate::{Result, options::Options};
 
 #[derive(Debug)]
-pub struct DeError { msg: String }
+pub struct DeError {
+    msg: String,
+}
 
 impl core::fmt::Display for DeError {
-    fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result { f.write_str(&self.msg) }
+    fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
+        f.write_str(&self.msg)
+    }
 }
 impl de::Error for DeError {
-    fn custom<T: core::fmt::Display>(t: T) -> Self { DeError { msg: format!("{}", t) } }
+    fn custom<T: core::fmt::Display>(t: T) -> Self {
+        DeError {
+            msg: format!("{}", t),
+        }
+    }
 }
 impl core::error::Error for DeError {}
 
@@ -24,7 +32,9 @@ pub struct Deserializer {
 }
 
 impl Deserializer {
-    pub fn from_value(value: Value) -> Self { Self { value } }
+    pub fn from_value(value: Value) -> Self {
+        Self { value }
+    }
 }
 
 impl<'de> de::Deserializer<'de> for Deserializer {
@@ -44,12 +54,22 @@ impl<'de> de::Deserializer<'de> for Deserializer {
             },
             Value::String(s) => visitor.visit_string(s),
             Value::Array(arr) => {
-                struct SA { elems: Vec<Value>, idx: usize }
+                struct SA {
+                    elems: Vec<Value>,
+                    idx: usize,
+                }
                 impl<'de> SeqAccess<'de> for SA {
                     type Error = DeError;
-                    fn next_element_seed<T>(&mut self, seed: T) -> core::result::Result<Option<T::Value>, Self::Error>
-                    where T: de::DeserializeSeed<'de> {
-                        if self.idx >= self.elems.len() { return Ok(None); }
+                    fn next_element_seed<T>(
+                        &mut self,
+                        seed: T,
+                    ) -> core::result::Result<Option<T::Value>, Self::Error>
+                    where
+                        T: de::DeserializeSeed<'de>,
+                    {
+                        if self.idx >= self.elems.len() {
+                            return Ok(None);
+                        }
                         let v = core::mem::replace(&mut self.elems[self.idx], Value::Null);
                         self.idx += 1;
                         let de = Deserializer { value: v };
@@ -59,26 +79,46 @@ impl<'de> de::Deserializer<'de> for Deserializer {
                 visitor.visit_seq(SA { elems: arr, idx: 0 })
             }
             Value::Object(obj) => {
-                struct MA { entries: Vec<(String, Value)>, idx: usize, next_val: Option<Value> }
+                struct MA {
+                    entries: Vec<(String, Value)>,
+                    idx: usize,
+                    next_val: Option<Value>,
+                }
                 impl<'de> MapAccess<'de> for MA {
                     type Error = DeError;
-                    fn next_key_seed<K>(&mut self, seed: K) -> core::result::Result<Option<K::Value>, Self::Error>
-                    where K: de::DeserializeSeed<'de> {
-                        if self.idx >= self.entries.len() { return Ok(None); }
+                    fn next_key_seed<K>(
+                        &mut self,
+                        seed: K,
+                    ) -> core::result::Result<Option<K::Value>, Self::Error>
+                    where
+                        K: de::DeserializeSeed<'de>,
+                    {
+                        if self.idx >= self.entries.len() {
+                            return Ok(None);
+                        }
                         let (ref key, ref val) = self.entries[self.idx];
                         let de_key = key.clone().into_deserializer();
                         self.next_val = Some(val.clone());
                         seed.deserialize(de_key).map(Some)
                     }
-                    fn next_value_seed<VV>(&mut self, seed: VV) -> core::result::Result<VV::Value, Self::Error>
-                    where VV: de::DeserializeSeed<'de> {
+                    fn next_value_seed<VV>(
+                        &mut self,
+                        seed: VV,
+                    ) -> core::result::Result<VV::Value, Self::Error>
+                    where
+                        VV: de::DeserializeSeed<'de>,
+                    {
                         let v = self.next_val.take().unwrap_or(Value::Null);
                         self.idx += 1;
                         let de = Deserializer { value: v };
                         seed.deserialize(de)
                     }
                 }
-                visitor.visit_map(MA { entries: obj, idx: 0, next_val: None })
+                visitor.visit_map(MA {
+                    entries: obj,
+                    idx: 0,
+                    next_val: None,
+                })
             }
         }
     }
@@ -91,13 +131,16 @@ impl<'de> de::Deserializer<'de> for Deserializer {
 }
 
 pub fn from_str<T: DeserializeOwned>(s: &str, options: &Options) -> Result<T> {
+    let lines = crate::decode::scanner::scan(s);
     if options.strict {
-        let lines = crate::decode::scanner::scan(s);
         if let Err(e) = crate::decode::validation::validate_indentation(&lines) {
-            return Err(crate::error::Error::Syntax { line: e.line, message: e.message });
+            return Err(crate::error::Error::Syntax {
+                line: e.line,
+                message: e.message,
+            });
         }
     }
-    let v = crate::decode::parser::parse_to_value_with_strict(s, options.strict)?;
+    let v = crate::decode::parser::parse_to_internal_value_from_lines(lines, options.strict)?;
     let deser = Deserializer::from_value(v);
     let t = T::deserialize(deser).map_err(|e: DeError| crate::error::Error::Message(e.msg))?;
     Ok(t)

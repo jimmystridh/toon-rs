@@ -3,14 +3,30 @@
 use serde::{Deserialize, Serialize};
 
 #[derive(Debug, Serialize, Deserialize, PartialEq)]
-struct Row { a: u32, b: String }
+struct Row {
+    a: u32,
+    b: String,
+}
 
 #[derive(Debug, Serialize, Deserialize, PartialEq)]
-struct Wrapper { rows: Vec<Row> }
+struct Wrapper {
+    rows: Vec<Row>,
+}
 
 #[test]
 fn typed_roundtrip_alloc() -> Result<(), toon::Error> {
-    let w = Wrapper { rows: vec![ Row { a: 1, b: "x".into() }, Row { a: 2, b: "y".into() } ] };
+    let w = Wrapper {
+        rows: vec![
+            Row {
+                a: 1,
+                b: "x".into(),
+            },
+            Row {
+                a: 2,
+                b: "y".into(),
+            },
+        ],
+    };
     let opts = toon::Options::default();
     let s = toon::ser::to_string_streaming(&w, &opts)?;
     let back: Wrapper = toon::de::from_str(&s, &opts)?;
@@ -20,7 +36,18 @@ fn typed_roundtrip_alloc() -> Result<(), toon::Error> {
 
 #[test]
 fn tabular_emission_alloc() -> Result<(), toon::Error> {
-    let w = Wrapper { rows: vec![ Row { a: 1, b: "x".into() }, Row { a: 2, b: "y".into() } ] };
+    let w = Wrapper {
+        rows: vec![
+            Row {
+                a: 1,
+                b: "x".into(),
+            },
+            Row {
+                a: 2,
+                b: "y".into(),
+            },
+        ],
+    };
     let s = toon::ser::to_string_streaming(&w, &toon::Options::default())?;
     assert!(s.contains("@, a, b"));
     assert!(s.contains("- 1, x") && s.contains("- 2, y"));

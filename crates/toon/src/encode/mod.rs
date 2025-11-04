@@ -1,13 +1,13 @@
 //! Encoding pipeline for TOON (phase 1: primitives, objects, arrays; no tabular emission yet)
 
-pub mod primitives;
-pub mod writer;
 #[cfg(feature = "json")]
 pub mod encoders;
 #[cfg(feature = "json")]
 pub mod normalize;
+pub mod primitives;
+pub mod writer;
 
-use crate::{options::Options, Result};
+use crate::{Result, options::Options};
 
 #[cfg(all(feature = "serde", feature = "json"))]
 use serde_json::Value;
