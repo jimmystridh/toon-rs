@@ -13,8 +13,8 @@ pub struct ValidationError {
     pub message: String,
 }
 
-pub fn validate_indentation(
-    lines: &[crate::decode::scanner::ParsedLine],
+pub fn validate_indentation<'a>(
+    lines: &[crate::decode::scanner::ParsedLine<'a>],
 ) -> Result<(), ValidationError> {
     let mut prev_indent: Option<usize> = None;
     for (idx, pl) in lines.iter().enumerate() {

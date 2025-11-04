@@ -9,15 +9,15 @@ use alloc::{
 
 use crate::value::{Number, Value};
 
-pub struct Parser {
-    lines: Vec<ParsedLine>,
+pub struct Parser<'a> {
+    lines: Vec<ParsedLine<'a>>,
     idx: usize,
     strict: bool,
     error: Option<crate::error::Error>,
 }
 
-impl Parser {
-    pub fn from_str(input: &str) -> Self {
+impl<'a> Parser<'a> {
+    pub fn from_str(input: &'a str) -> Self {
         Self {
             lines: scan(input),
             idx: 0,
@@ -26,7 +26,7 @@ impl Parser {
         }
     }
 
-    pub fn from_str_with_strict(input: &str, strict: bool) -> Self {
+    pub fn from_str_with_strict(input: &'a str, strict: bool) -> Self {
         Self {
             lines: scan(input),
             idx: 0,
@@ -35,7 +35,7 @@ impl Parser {
         }
     }
 
-    pub fn from_lines(lines: Vec<ParsedLine>, strict: bool) -> Self {
+    pub fn from_lines(lines: Vec<ParsedLine<'a>>, strict: bool) -> Self {
         Self {
             lines,
             idx: 0,
@@ -58,11 +58,11 @@ impl Parser {
         }
     }
 
-    fn peek(&self) -> Option<&ParsedLine> {
+    fn peek(&self) -> Option<&ParsedLine<'a>> {
         self.lines.get(self.idx)
     }
 
-    fn next(&mut self) -> Option<&ParsedLine> {
+    fn next(&mut self) -> Option<&ParsedLine<'a>> {
         let i = self.idx;
         self.idx += 1;
         self.lines.get(i)
@@ -135,27 +135,17 @@ impl Parser {
         let mut arr = Vec::new();
         loop {
             self.skip_blanks();
-            let kind = {
-                let Some(line) = self.peek() else {
-                    break;
-                };
-                if line.indent != indent {
-                    break;
-                }
-                line.kind.clone()
-            };
-            match kind {
-                LineKind::ListItem { value } => {
-                    self.next();
-                    if let Some(vs) = value {
-                        arr.push(self.parse_scalar_token(&vs));
-                    } else {
-                        // Nested block
-                        let child_indent = indent + 2;
-                        arr.push(self.parse_node(child_indent));
-                    }
-                }
-                _ => break,
+            let (take, item_val): (bool, Option<&str>) = if let Some(line) = self.peek() {
+                if line.indent != indent { break; }
+                match &line.kind { LineKind::ListItem { value } => (true, value.clone()), _ => (false, None) }
+            } else { break };
+            if !take { break; }
+            self.next();
+            if let Some(vs) = item_val {
+                arr.push(self.parse_scalar_token(vs));
+            } else {
+                let child_indent = indent + 2;
+                arr.push(self.parse_node(child_indent));
             }
         }
         Value::Array(arr)
@@ -165,86 +155,56 @@ impl Parser {
         let mut map: Vec<(String, Value)> = Vec::new();
         loop {
             self.skip_blanks();
-            let kind = {
-                let Some(line) = self.peek() else {
-                    break;
-                };
-                if line.indent != indent {
-                    break;
+            let next_kind = if let Some(line) = self.peek() {
+                if line.indent != indent { break; }
+                match &line.kind {
+                    LineKind::KeyValue { key, value } => Some((Some(*key), Some(*value))),
+                    LineKind::KeyOnly { key } => Some((Some(*key), None)),
+                    _ => None,
                 }
-                line.kind.clone()
-            };
-            match kind {
-                LineKind::KeyValue { key, value } => {
+            } else { break };
+            let Some((key_opt, val_opt)) = next_kind else { break; };
+            match (key_opt, val_opt) {
+                (Some(kref), Some(vref)) => {
                     self.next();
-                    let k = self.parse_key_token(&key);
-                    let v = self.parse_scalar_token(&value);
+                    let k = self.parse_key_token(kref);
+                    let v = self.parse_scalar_token(vref);
                     map.push((k, v));
                 }
-                LineKind::KeyOnly { key } => {
+                (Some(kref), None) => {
                     self.next();
-                    let k = self.parse_key_token(&key);
+                    let k = self.parse_key_token(kref);
                     let child_indent = indent + 2;
-                    // Check for tabular header line
                     let mut handled = false;
                     if let Some(nl) = self.peek() {
                         if nl.indent == child_indent {
-                            let kind = nl.kind.clone();
-                            if let LineKind::Scalar(s) = kind {
-                                if let Some((dch, header_str)) = parse_header(&s) {
-                                    // Strict: delimiter must be one of allowed
+                            if let LineKind::Scalar(s0) = &nl.kind {
+                                let header_text = *s0;
+                                if let Some((dch, header_str)) = parse_header(header_text) {
                                     if self.strict && !(dch == ',' || dch == '\t' || dch == '|') {
                                         let line_no = self.idx + 1;
-                                        self.error = Some(crate::error::Error::Syntax {
-                                            line: line_no,
-                                            message: format!(
-                                                "invalid header delimiter '{}': expected ',', '\\t', or '|'",
-                                                dch
-                                            ),
-                                        });
+                                        self.error = Some(crate::error::Error::Syntax { line: line_no, message: format!("invalid header delimiter '{}': expected ',', '\\t', or '|'", dch) });
                                     }
-                                    self.next(); // consume header line
+                                    self.next();
                                     let raw_header_tokens = split_delim_aware(header_str, dch);
-                                    let header_keys = raw_header_tokens
-                                        .iter()
-                                        .map(|h| self.parse_key_token(h))
-                                        .collect::<Vec<_>>();
-                                    // Strict: header must be non-empty and unique keys, and tokens requiring quotes must be quoted
+                                    let header_keys = raw_header_tokens.iter().map(|h| self.parse_key_token(h)).collect::<Vec<_>>();
                                     if self.strict {
                                         if header_keys.is_empty() {
-                                            let line_no = self.idx; // just consumed header
-                                            self.error = Some(crate::error::Error::Syntax {
-                                                line: line_no,
-                                                message: "empty tabular header".to_string(),
-                                            });
+                                            let line_no = self.idx;
+                                            self.error = Some(crate::error::Error::Syntax { line: line_no, message: "empty tabular header".to_string() });
                                         }
                                         for (_i, htok) in raw_header_tokens.iter().enumerate() {
-                                            if !is_quoted_token(htok)
-                                                && token_requires_quotes(htok, dch)
-                                            {
-                                                let line_no = self.idx; // header line
-                                                self.error = Some(crate::error::Error::Syntax {
-                                                    line: line_no,
-                                                    message: format!(
-                                                        "unquoted header token requires quotes: {}",
-                                                        htok
-                                                    ),
-                                                });
+                                            if !is_quoted_token(htok) && token_requires_quotes(htok, dch) {
+                                                let line_no = self.idx;
+                                                self.error = Some(crate::error::Error::Syntax { line: line_no, message: format!("unquoted header token requires quotes: {}", htok) });
                                                 break;
                                             }
                                         }
                                         for i in 0..header_keys.len() {
-                                            for j in (i + 1)..header_keys.len() {
+                                            for j in (i+1)..header_keys.len() {
                                                 if header_keys[i] == header_keys[j] {
-                                                    let line_no = self.idx; // header line
-                                                    self.error =
-                                                        Some(crate::error::Error::Syntax {
-                                                            line: line_no,
-                                                            message: format!(
-                                                                "duplicate header key: {}",
-                                                                header_keys[i]
-                                                            ),
-                                                        });
+                                                    let line_no = self.idx;
+                                                    self.error = Some(crate::error::Error::Syntax { line: line_no, message: format!("duplicate header key: {}", header_keys[i]) });
                                                     break;
                                                 }
                                             }
@@ -253,98 +213,48 @@ impl Parser {
                                     let expected_cells = header_keys.len();
                                     let mut rows: Vec<Value> = Vec::new();
                                     loop {
-                                        // strict: no blank lines inside table block
                                         if self.strict {
                                             if let Some(bl) = self.peek() {
                                                 if matches!(bl.kind, LineKind::Blank) {
                                                     let line_no = self.idx + 1;
-                                                    self.error =
-                                                        Some(crate::error::Error::Syntax {
-                                                            line: line_no,
-                                                            message: "blank line inside table"
-                                                                .to_string(),
-                                                        });
+                                                    self.error = Some(crate::error::Error::Syntax { line: line_no, message: "blank line inside table".to_string() });
                                                 }
                                             }
                                         }
                                         self.skip_blanks();
-                                        let kind2 = {
-                                            let Some(rowl) = self.peek() else {
-                                                break;
-                                            };
-                                            if rowl.indent != child_indent {
-                                                break;
-                                            }
-                                            rowl.kind.clone()
-                                        };
-                                        match kind2 {
-                                            LineKind::ListItem { value: Some(rs) } => {
-                                                let row_line = self.idx + 1;
-                                                self.next();
-                                                let row_trimmed = rs.trim_end();
-                                                if self.strict && row_trimmed.ends_with(dch) {
-                                                    self.error =
-                                                        Some(crate::error::Error::Syntax {
-                                                            line: row_line,
-                                                            message: "trailing delimiter in row"
-                                                                .to_string(),
-                                                        });
-                                                }
-                                                let cells = split_delim_aware(&rs, dch);
-                                                if self.strict
-                                                    && self.error.is_none()
-                                                    && cells.len() != expected_cells
-                                                {
-                                                    self.error = Some(
-                                                        crate::error::Error::Syntax {
-                                                            line: row_line,
-                                                            message: format!(
-                                                                "row cell count {} does not match header {}",
-                                                                cells.len(),
-                                                                expected_cells
-                                                            ),
-                                                        },
-                                                    );
-                                                }
-                                                if self.strict && self.error.is_none() {
-                                                    for ctok in &cells {
-                                                        if !is_quoted_token(ctok)
-                                                            && cell_token_requires_quotes(ctok, dch)
-                                                        {
-                                                            self.error = Some(
-                                                                crate::error::Error::Syntax {
-                                                                    line: row_line,
-                                                                    message: format!(
-                                                                        "unquoted cell requires quotes: {}",
-                                                                        ctok
-                                                                    ),
-                                                                },
-                                                            );
-                                                            break;
-                                                        }
-                                                    }
-                                                }
-                                                let mut om: Vec<(String, Value)> =
-                                                    Vec::with_capacity(expected_cells);
-                                                for (i, hk) in header_keys.iter().enumerate() {
-                                                    let cell =
-                                                        cells.get(i).copied().unwrap_or("null");
-                                                    om.push((
-                                                        hk.clone(),
-                                                        self.parse_scalar_token(cell),
-                                                    ));
-                                                }
-                                                rows.push(Value::Object(om));
-                                            }
-                                            _ => break,
+                                        let row_item: Option<&str> = if let Some(rowl) = self.peek() {
+                                            if rowl.indent != child_indent { break; }
+                                            match &rowl.kind { LineKind::ListItem { value: Some(rs) } => Some(*rs), _ => None }
+                                        } else { break };
+                                        let Some(rs) = row_item else { break; };
+                                        let row_line = self.idx + 1;
+                                        self.next();
+                                        let row_trimmed = rs.trim_end();
+                                        if self.strict && row_trimmed.as_bytes().last().copied() == Some(dch as u8) {
+                                            self.error = Some(crate::error::Error::Syntax { line: row_line, message: "trailing delimiter in row".to_string() });
                                         }
+                                        let cells = split_delim_aware(rs, dch);
+                                        if self.strict && self.error.is_none() && cells.len() != expected_cells {
+                                            self.error = Some(crate::error::Error::Syntax { line: row_line, message: format!("row cell count {} does not match header {}", cells.len(), expected_cells) });
+                                        }
+                                        if self.strict && self.error.is_none() {
+                                            for ctok in &cells {
+                                                if !is_quoted_token(ctok) && cell_token_requires_quotes(ctok, dch) {
+                                                    self.error = Some(crate::error::Error::Syntax { line: row_line, message: format!("unquoted cell requires quotes: {}", ctok) });
+                                                    break;
+                                                }
+                                            }
+                                        }
+                                        let mut om: Vec<(String, Value)> = Vec::with_capacity(expected_cells);
+                                        for (i, hk) in header_keys.iter().enumerate() {
+                                            let cell = cells.get(i).copied().unwrap_or("null");
+                                            om.push((hk.clone(), self.parse_scalar_token(cell)));
+                                        }
+                                        rows.push(Value::Object(om));
                                     }
                                     if self.strict && rows.is_empty() {
-                                        let line_no = self.idx; // after header
-                                        self.error = Some(crate::error::Error::Syntax {
-                                            line: line_no,
-                                            message: "empty table (no rows)".to_string(),
-                                        });
+                                        let line_no = self.idx;
+                                        self.error = Some(crate::error::Error::Syntax { line: line_no, message: "empty table (no rows)".to_string() });
                                     }
                                     map.push((k.clone(), Value::Array(rows)));
                                     handled = true;
@@ -364,11 +274,11 @@ impl Parser {
     }
 
     fn parse_scalar_line(&mut self, _indent: usize) -> Value {
-        let line = self.next().expect("expected scalar line");
-        if let LineKind::Scalar(s) = &line.kind {
-            let owned = s.clone();
-            return self.parse_scalar_token(&owned);
-        }
+        let s_opt = match self.next() {
+            Some(pl) => match &pl.kind { LineKind::Scalar(s) => Some(*s), _ => None },
+            None => None,
+        };
+        if let Some(s) = s_opt { return self.parse_scalar_token(s); }
         Value::Null
     }
 
@@ -532,8 +442,8 @@ pub fn parse_to_internal_value(input: &str) -> Value {
     p.parse_document()
 }
 
-pub fn parse_to_internal_value_from_lines(
-    lines: Vec<ParsedLine>,
+pub fn parse_to_internal_value_from_lines<'a>(
+    lines: Vec<ParsedLine<'a>>,
     strict: bool,
 ) -> Result<Value, crate::error::Error> {
     let mut p = Parser::from_lines(lines, strict);
