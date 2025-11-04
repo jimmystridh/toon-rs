@@ -35,3 +35,17 @@ chrono = { version = "0.4", default-features = false, features = ["clock", "std"
 
 [dev-dependencies]
 serde_json = "1.0"
+criterion = { version = "0.5" }
+rand = "0.8"
+
+[[bench]]
+name = "encode_bench"
+harness = false
+
+[[bench]]
+name = "decode_bench"
+harness = false
+
+[[bench]]
+name = "stream_bench"
+harness = false

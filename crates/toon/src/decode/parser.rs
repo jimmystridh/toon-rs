@@ -172,7 +172,7 @@ if self.strict {
                                                 }
                                                 if self.strict && self.error.is_none() {
                                                     for ctok in &cells {
-                                                        if !is_quoted_token(ctok) && token_requires_quotes(ctok, dch) {
+                                                        if !is_quoted_token(ctok) && cell_token_requires_quotes(ctok, dch) {
                                                             self.error = Some(crate::error::Error::Syntax { line: row_line, message: format!("unquoted cell requires quotes: {}", ctok) });
                                                             break;
                                                         }
@@ -284,6 +284,32 @@ fn token_requires_quotes(s: &str, dch: char) -> bool {
         _ => Delimiter::Comma,
     };
     crate::encode::primitives::needs_quotes(s, delim)
+}
+
+fn cell_token_requires_quotes(s: &str, dch: char) -> bool {
+    // Stricter check for row cells that ignores numeric/boolean-like tokens,
+    // focusing only on characters that would break parsing if left unquoted.
+    if s.is_empty() { return true; }
+    let t = s.trim();
+    if t.is_empty() { return true; }
+    // Delimiter presence would have split already for unquoted tokens, but keep for safety
+    if t.contains(dch) { return true; }
+    // Unquoted colon is ambiguous inside cells
+    if t.contains(':') { return true; }
+    // Dangerous characters requiring escaping in quoted strings
+    if t.chars().any(|c| c == '"' || c == '\\' || is_control_char(c)) { return true; }
+    // Leading/trailing spaces would be lost; enforce quoting
+    if t.starts_with(' ') || t.ends_with(' ') { return true; }
+    // A lone hyphen or strings starting with hyphen (non-numeric) can be ambiguous; require quotes
+    if t == "-" { return true; }
+    // If it starts with '-' but is not a valid number, require quotes
+    if t.starts_with('-') && t.parse::<f64>().is_err() { return true; }
+    false
+}
+
+fn is_control_char(c: char) -> bool {
+    let u = c as u32;
+    u < 0x20 || u == 0x7F
 }
 
 pub fn parse_to_internal_value(input: &str) -> Value {
