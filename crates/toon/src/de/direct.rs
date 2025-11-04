@@ -37,7 +37,8 @@ impl<'a> DirectDeserializer<'a> {
 
     fn parse_key(&self, k: &str) -> String {
         if let Some(s) = unescape_json_string(k) { return s; }
-        k.to_string()
+        let base = if let Some(idx) = k.find('[') { &k[..idx] } else { k };
+        base.to_string()
     }
 
     fn classify_primitive(s: &str) -> Primitive {
@@ -134,18 +135,28 @@ impl<'de, 'a, 'b> SeqAccess<'de> for SeqDe<'a, 'b> {
                     return seed.deserialize(de::value::SeqAccessDeserializer::new(&mut ia)).map(Some);
                 }
             }
-            // 2) Object on hyphen line: "key: ..."
+            // 2) Object on hyphen line: variants
             if let Some(colon) = find_unquoted_colon(vs) {
-                let (k, rest) = vs.split_at(colon);
-                let key = self.de.parse_key(k);
+                let (kraw, rest) = vs.split_at(colon);
                 let after = rest[1..].trim_start();
-                // First field value can be scalar or inline array header
-                let first_val = if after.starts_with('[') {
+                // 2a) Tabular header on hyphen line: key[N]{fields}:
+                if after.is_empty() {
+                    if let Some((key, dch, header)) = try_parse_keyed_tabular_header(self.de, kraw) {
+                        let mut obj = HyphenObjectDe { de: self.de, first_key: Some(key), first_val: Some(HyphenFirstValue::TabularHeader { dch, header }), siblings_indent: self.indent + 1 };
+                        return seed.deserialize(de::value::MapAccessDeserializer::new(&mut obj)).map(Some);
+                    }
+                }
+                // 2b) Regular key: value or nested object
+                let key = self.de.parse_key(kraw);
+                // First field value can be scalar, inline array header, or nested object
+                let first_val = if after.is_empty() {
+                    HyphenFirstValue::NestedObject { child_indent: self.indent + 2 }
+                } else if after.starts_with('[') {
                     if let Some((_n, dch, values_str)) = parse_inline_array_header(after) {
                         HyphenFirstValue::InlineArray { dch, values_str }
                     } else { HyphenFirstValue::Scalar(after) }
                 } else { HyphenFirstValue::Scalar(after) };
-                let mut obj = HyphenObjectDe { de: self.de, first_key: Some(key), first_val: Some(first_val), siblings_indent: self.indent + 1 };
+                let mut obj = HyphenObjectDe { de: self.de, first_key: Some(key), first_val: Some(first_val), siblings_indent: self.indent + 2 };
                 return seed.deserialize(de::value::MapAccessDeserializer::new(&mut obj)).map(Some);
             }
             // 3) Fallback primitive value
@@ -166,7 +177,13 @@ struct MapDe<'a, 'b> {
     pending: Option<(String, ValueKind<'a>)>,
 }
 
-enum ValueKind<'a> { Scalar(&'a str), Array { child_indent: usize }, Tabular { dch: char, header: Vec<String>, child_indent: usize } }
+enum ValueKind<'a> {
+    Scalar(&'a str),
+    InlinePrimitiveArray { dch: char, values_str: &'a str },
+    NestedObject { child_indent: usize },
+    Array { child_indent: usize },
+    Tabular { dch: char, header: Vec<String>, child_indent: usize },
+}
 
 impl<'de, 'a, 'b> MapAccess<'de> for MapDe<'a, 'b> {
     type Error = DeError;
@@ -187,6 +204,18 @@ impl<'de, 'a, 'b> MapAccess<'de> for MapDe<'a, 'b> {
             (Some(kref), Some(vref)) => {
                 self.de.next();
                 let k = self.de.parse_key(kref);
+                // Inline primitive arrays as object field:
+                // Either value starts with header, or key contains [N<delim?>]
+                if vref.starts_with('[') {
+                    if let Some((_n, dch, values_str)) = parse_inline_array_header(vref) {
+                        self.pending = Some((k.clone(), ValueKind::InlinePrimitiveArray { dch, values_str }));
+                        return seed.deserialize(k.into_deserializer()).map(Some);
+                    }
+                } else if kref.contains('[') {
+                    let dch = bracket_delim_from_key(kref).unwrap_or(',');
+                    self.pending = Some((k.clone(), ValueKind::InlinePrimitiveArray { dch, values_str: vref }));
+                    return seed.deserialize(k.into_deserializer()).map(Some);
+                }
                 self.pending = Some((k.clone(), ValueKind::Scalar(vref)));
                 seed.deserialize(k.into_deserializer()).map(Some)
             }
@@ -194,18 +223,30 @@ impl<'de, 'a, 'b> MapAccess<'de> for MapDe<'a, 'b> {
                 self.de.next();
                 let k = self.de.parse_key(kref);
                 let child_indent = self.indent + 2;
-                // Detect tabular header
-                let vkind = if let Some(nl) = self.de.peek() {
-                    if nl.indent == child_indent {
-                        if let LineKind::Scalar(s) = &nl.kind {
-                            if let Some((dch, hdr)) = parse_header(s) {
-                                self.de.next(); // consume header line
-                                let fields = split_delim_aware(hdr, dch).into_iter().map(|f| self.de.parse_key(f)).collect::<Vec<_>>();
-                                ValueKind::Tabular { dch, header: fields, child_indent }
-                            } else { ValueKind::Array { child_indent } }
-                        } else { ValueKind::Array { child_indent } }
-                    } else { ValueKind::Array { child_indent } }
-                } else { ValueKind::Array { child_indent } };
+                // Distinguish keyed header vs nested object
+                let vkind = if kref.contains('[') {
+                    // Try keyed tabular header "key[N]{fields}:"
+                    if let Some((_key_again, dch, header)) = try_parse_keyed_tabular_header(self.de, kref) {
+                        ValueKind::Tabular { dch, header, child_indent }
+                    } else {
+                        // key[N]: list array items under child indent
+                        ValueKind::Array { child_indent }
+                    }
+                } else {
+                    // Not header: regular nested object
+                    // Also support legacy next-line scalar header starting with '@'
+                    if let Some(nl) = self.de.peek() {
+                        if nl.indent == child_indent {
+                            if let LineKind::Scalar(s) = &nl.kind {
+                                if let Some((dch, hdr)) = parse_header(s) {
+                                    self.de.next();
+                                    let fields = split_delim_aware(hdr, dch).into_iter().map(|f| self.de.parse_key(f)).collect::<Vec<_>>();
+                                    ValueKind::Tabular { dch, header: fields, child_indent }
+                                } else { ValueKind::NestedObject { child_indent } }
+                            } else { ValueKind::NestedObject { child_indent } }
+                        } else { ValueKind::NestedObject { child_indent } }
+                    } else { ValueKind::NestedObject { child_indent } }
+                };
                 self.pending = Some((k.clone(), vkind));
                 seed.deserialize(k.into_deserializer()).map(Some)
             }
@@ -213,11 +254,20 @@ impl<'de, 'a, 'b> MapAccess<'de> for MapDe<'a, 'b> {
         }
     }
 
-    fn next_value_seed<VV>(&mut self, seed: VV) -> core::result::Result<VV::Value, Self::Error>
-    where VV: de::DeserializeSeed<'de> {
-        let (k, vk) = self.pending.take().ok_or_else(|| DeError{ msg: "value requested without key".into() })?;
+    fn next_value_seed<V>(&mut self, seed: V) -> core::result::Result<V::Value, Self::Error>
+    where V: de::DeserializeSeed<'de> {
+        let (_k, vk) = self.pending.take().ok_or_else(|| DeError{ msg: "value requested without key".into() })?;
         match vk {
             ValueKind::Scalar(s) => seed.deserialize(PrimDe(DirectDeserializer::classify_primitive(s))),
+            ValueKind::InlinePrimitiveArray { dch, values_str } => {
+                let toks = split_delim_aware(values_str, dch);
+                let mut ia = InlineArraySeq { tokens: toks, idx: 0 };
+                seed.deserialize(de::value::SeqAccessDeserializer::new(&mut ia))
+            }
+            ValueKind::NestedObject { child_indent } => {
+                let mut ma = MapDe { de: self.de, indent: child_indent, pending: None };
+                seed.deserialize(de::value::MapAccessDeserializer::new(&mut ma))
+            }
             ValueKind::Array { child_indent } => {
                 let mut sa = SeqDe { de: self.de, indent: child_indent };
                 seed.deserialize(de::value::SeqAccessDeserializer::new(&mut sa))
@@ -247,7 +297,12 @@ impl<'de, 'a> SeqAccess<'de> for InlineArraySeq<'a> {
 
 struct HyphenObjectDe<'a, 'b> { de: &'b mut DirectDeserializer<'a>, first_key: Option<String>, first_val: Option<HyphenFirstValue<'a>>, siblings_indent: usize }
 
-enum HyphenFirstValue<'a> { Scalar(&'a str), InlineArray { dch: char, values_str: &'a str } }
+enum HyphenFirstValue<'a> {
+    Scalar(&'a str),
+    InlineArray { dch: char, values_str: &'a str },
+    NestedObject { child_indent: usize },
+    TabularHeader { dch: char, header: Vec<String> },
+}
 
 impl<'de, 'a, 'b> MapAccess<'de> for HyphenObjectDe<'a, 'b> {
     type Error = DeError;
@@ -279,6 +334,14 @@ impl<'de, 'a, 'b> MapAccess<'de> for HyphenObjectDe<'a, 'b> {
                     let toks = split_delim_aware(values_str, dch);
                     let mut ia = InlineArraySeq { tokens: toks, idx: 0 };
                     seed.deserialize(de::value::SeqAccessDeserializer::new(&mut ia))
+                }
+                HyphenFirstValue::NestedObject { child_indent } => {
+                    let mut ma = MapDe { de: self.de, indent: child_indent, pending: None };
+                    seed.deserialize(de::value::MapAccessDeserializer::new(&mut ma))
+                }
+                HyphenFirstValue::TabularHeader { dch, header } => {
+                    let mut ta = TabularSeqDe { de: self.de, indent: self.siblings_indent, dch, header };
+                    seed.deserialize(de::value::SeqAccessDeserializer::new(&mut ta))
                 }
             }
         } else {
@@ -410,4 +473,41 @@ fn parse_inline_array_header(s: &str) -> Option<(usize, char, &str)> {
     if i >= bytes.len() || bytes[i] != b':' { return None; }
     let rest = s[i+1..].trim_start();
     Some((n, dch, rest))
+}
+
+fn try_parse_keyed_tabular_header<'a>(de: &DirectDeserializer<'a>, kraw: &str) -> Option<(String, char, Vec<String>)> {
+    let bytes = kraw.as_bytes();
+    let br = bytes.iter().position(|&b| b == b'[')?; // require '['
+    let key_str = &kraw[..br];
+    let mut i = br + 1; let mut dch = ',';
+    // Skip length digits
+    while i < bytes.len() && bytes[i].is_ascii_digit() { i += 1; }
+    if i < bytes.len() {
+        match bytes[i] { b'\t' => { dch='\t'; i+=1; }, b'|' => { dch='|'; i+=1; }, _ => {} }
+    }
+    if i >= bytes.len() || bytes[i] != b']' { return None; }
+    i += 1;
+    // Require fields segment for tabular; otherwise not a tabular header
+    if !(i < bytes.len() && bytes[i] == b'{') { return None; }
+    // find matching '}'
+    let close = kraw[i..].find('}')? + i;
+    let inner = &kraw[i+1..close];
+    let mut header: Vec<String> = Vec::new();
+    for tok in split_delim_aware(inner, dch) { header.push(de.parse_key(tok)); }
+    i = close + 1;
+    // trailing content must be empty
+    if i != bytes.len() { return None; }
+    let key = de.parse_key(key_str);
+    Some((key, dch, header))
+}
+
+fn bracket_delim_from_key(k: &str) -> Option<char> {
+    let bytes = k.as_bytes();
+    let bpos = bytes.iter().position(|&b| b == b'[')?;
+    let mut i = bpos + 1;
+    while i < bytes.len() && bytes[i].is_ascii_digit() { i += 1; }
+    if i < bytes.len() {
+        match bytes[i] { b'\t' => return Some('\t'), b'|' => return Some('|'), _ => {} }
+    }
+    Some(',')
 }

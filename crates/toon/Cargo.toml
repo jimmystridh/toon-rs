@@ -32,6 +32,8 @@ perf_memchr = ["dep:memchr"]
 perf_smallvec = ["dep:smallvec"]
 # Direct deserializer (no intermediate Value)
 de_direct = []
+# Faster numeric parsing via lexical-core (optional)
+perf_lexical = ["dep:lexical-core"]
 
 [dependencies]
 serde = { version = "1.0", default-features = false, features = ["derive", "alloc"], optional = true }
@@ -40,6 +42,7 @@ thiserror = "1.0"
 chrono = { version = "0.4", default-features = false, features = ["clock", "std", "serde"], optional = true }
 memchr = { version = "2", optional = true }
 smallvec = { version = "1", default-features = false, optional = true }
+lexical-core = { version = "0.8", default-features = false, optional = true }
 
 [dev-dependencies]
 serde_json = "1.0"
