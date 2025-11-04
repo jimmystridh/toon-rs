@@ -126,6 +126,29 @@ impl<'de, 'a, 'b> SeqAccess<'de> for SeqDe<'a, 'b> {
         } else { return Ok(None) };
         self.de.next();
         if let Some(vs) = val_opt {
+            // 1) Inline primitive array item: "[N<delim?>]: v1<delim>..."
+            if vs.starts_with('[') {
+                if let Some((_n, dch, values_str)) = parse_inline_array_header(vs) {
+                    let toks = split_delim_aware(values_str, dch);
+                    let mut ia = InlineArraySeq { tokens: toks, idx: 0 };
+                    return seed.deserialize(de::value::SeqAccessDeserializer::new(&mut ia)).map(Some);
+                }
+            }
+            // 2) Object on hyphen line: "key: ..."
+            if let Some(colon) = find_unquoted_colon(vs) {
+                let (k, rest) = vs.split_at(colon);
+                let key = self.de.parse_key(k);
+                let after = rest[1..].trim_start();
+                // First field value can be scalar or inline array header
+                let first_val = if after.starts_with('[') {
+                    if let Some((_n, dch, values_str)) = parse_inline_array_header(after) {
+                        HyphenFirstValue::InlineArray { dch, values_str }
+                    } else { HyphenFirstValue::Scalar(after) }
+                } else { HyphenFirstValue::Scalar(after) };
+                let mut obj = HyphenObjectDe { de: self.de, first_key: Some(key), first_val: Some(first_val), siblings_indent: self.indent + 1 };
+                return seed.deserialize(de::value::MapAccessDeserializer::new(&mut obj)).map(Some);
+            }
+            // 3) Fallback primitive value
             let tok = DirectDeserializer::classify_primitive(vs);
             let de = PrimDe(tok);
             seed.deserialize(de).map(Some)
@@ -208,6 +231,62 @@ impl<'de, 'a, 'b> MapAccess<'de> for MapDe<'a, 'b> {
 }
 
 struct TabularSeqDe<'a, 'b> { de: &'b mut DirectDeserializer<'a>, indent: usize, dch: char, header: Vec<String> }
+
+struct InlineArraySeq<'a> { tokens: Vec<&'a str>, idx: usize }
+impl<'de, 'a> SeqAccess<'de> for InlineArraySeq<'a> {
+    type Error = DeError;
+    fn next_element_seed<T>(&mut self, seed: T) -> core::result::Result<Option<T::Value>, Self::Error>
+    where T: de::DeserializeSeed<'de> {
+        if self.idx >= self.tokens.len() { return Ok(None); }
+        let s = self.tokens[self.idx];
+        self.idx += 1;
+        let de = PrimDe(DirectDeserializer::classify_primitive(s));
+        seed.deserialize(de).map(Some)
+    }
+}
+
+struct HyphenObjectDe<'a, 'b> { de: &'b mut DirectDeserializer<'a>, first_key: Option<String>, first_val: Option<HyphenFirstValue<'a>>, siblings_indent: usize }
+
+enum HyphenFirstValue<'a> { Scalar(&'a str), InlineArray { dch: char, values_str: &'a str } }
+
+impl<'de, 'a, 'b> MapAccess<'de> for HyphenObjectDe<'a, 'b> {
+    type Error = DeError;
+    fn next_key_seed<K>(&mut self, seed: K) -> core::result::Result<Option<K::Value>, Self::Error>
+    where K: de::DeserializeSeed<'de> {
+        if let Some(k) = self.first_key.take() { return seed.deserialize(k.into_deserializer()).map(Some); }
+        // After the first field, parse siblings at siblings_indent
+        self.de.skip_blanks();
+        let snapshot = if let Some(pl) = self.de.peek() {
+            if pl.indent != self.siblings_indent { return Ok(None); }
+            match &pl.kind {
+                LineKind::KeyValue { key, value } => (Some(*key), Some(*value)),
+                LineKind::KeyOnly { key } => (Some(*key), None),
+                _ => return Ok(None),
+            }
+        } else { return Ok(None) };
+        self.de.next();
+        let k = self.de.parse_key(snapshot.0.unwrap());
+        // Stash the value kind back into first_val slot to reuse next_value_seed path
+        if let Some(v) = snapshot.1 { self.first_val = Some(HyphenFirstValue::Scalar(v)); } else { self.first_val = Some(HyphenFirstValue::Scalar("null")); }
+        seed.deserialize(k.into_deserializer()).map(Some)
+    }
+    fn next_value_seed<V>(&mut self, seed: V) -> core::result::Result<V::Value, Self::Error>
+    where V: de::DeserializeSeed<'de> {
+        if let Some(fv) = self.first_val.take() {
+            match fv {
+                HyphenFirstValue::Scalar(s) => seed.deserialize(PrimDe(DirectDeserializer::classify_primitive(s))),
+                HyphenFirstValue::InlineArray { dch, values_str } => {
+                    let toks = split_delim_aware(values_str, dch);
+                    let mut ia = InlineArraySeq { tokens: toks, idx: 0 };
+                    seed.deserialize(de::value::SeqAccessDeserializer::new(&mut ia))
+                }
+            }
+        } else {
+            // Should not happen if next_key_seed is correct
+            Err(DeError{ msg: "value requested without pending field".into() })
+        }
+    }
+}
 impl<'de, 'a, 'b> SeqAccess<'de> for TabularSeqDe<'a, 'b> {
     type Error = DeError;
     fn next_element_seed<T>(&mut self, seed: T) -> core::result::Result<Option<T::Value>, Self::Error>
@@ -306,4 +385,29 @@ fn split_delim_aware<'a>(s: &'a str, dch: char) -> Vec<&'a str> {
     }
     if start < bytes.len() { let tok = s[start..].trim(); if !tok.is_empty() { out.push(tok); } }
     out
+}
+
+fn find_unquoted_colon(s: &str) -> Option<usize> {
+    let b = s.as_bytes();
+    let mut in_str = false; let mut escape = false;
+    for (i,&ch) in b.iter().enumerate() {
+        if in_str { if escape { escape=false; continue; } match ch { b'\\' => { escape=true; }, b'"' => { in_str=false; }, _=>{} } }
+        else { match ch { b'"' => { in_str=true; }, b':' => { return Some(i); }, _=>{} } }
+    }
+    None
+}
+
+fn parse_inline_array_header(s: &str) -> Option<(usize, char, &str)> {
+    // Expect: "[N<delim?>]:" followed by values
+    let bytes = s.as_bytes();
+    if bytes.first().copied()? != b'[' { return None; }
+    let mut i = 1usize; let mut n: usize = 0; while i < bytes.len() && bytes[i].is_ascii_digit() { n = n*10 + (bytes[i]-b'0') as usize; i+=1; }
+    if i >= bytes.len() { return None; }
+    let mut dch = ',';
+    match bytes[i] { b'\t' => { dch='\t'; i+=1; }, b'|' => { dch='|'; i+=1; }, _ => {} }
+    if i >= bytes.len() || bytes[i] != b']' { return None; }
+    i+=1;
+    if i >= bytes.len() || bytes[i] != b':' { return None; }
+    let rest = s[i+1..].trim_start();
+    Some((n, dch, rest))
 }
