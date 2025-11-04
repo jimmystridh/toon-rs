@@ -30,6 +30,8 @@ chrono = ["dep:chrono", "std"]
 # Optional performance micro-optimizations
 perf_memchr = ["dep:memchr"]
 perf_smallvec = ["dep:smallvec"]
+# Direct deserializer (no intermediate Value)
+de_direct = []
 
 [dependencies]
 serde = { version = "1.0", default-features = false, features = ["derive", "alloc"], optional = true }

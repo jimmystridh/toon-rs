@@ -1,0 +1,309 @@
+use serde::de::{self, DeserializeOwned, IntoDeserializer, MapAccess, SeqAccess};
+
+use crate::{error::Error as ToONError, options::Options, Result};
+use crate::decode::scanner::{scan, ParsedLine, LineKind};
+
+#[derive(Debug)]
+pub struct DeError { msg: String }
+impl core::fmt::Display for DeError { fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result { f.write_str(&self.msg) } }
+impl de::Error for DeError { fn custom<T: core::fmt::Display>(t: T) -> Self { DeError { msg: t.to_string() } } }
+impl core::error::Error for DeError {}
+
+pub fn from_str<T: DeserializeOwned>(s: &str, options: &Options) -> Result<T> {
+    let lines = scan(s);
+    if options.strict {
+        if let Err(e) = crate::decode::validation::validate_indentation(&lines) {
+            return Err(ToONError::Syntax { line: e.line, message: e.message });
+        }
+    }
+    let mut de = DirectDeserializer { lines, idx: 0, strict: options.strict };
+    T::deserialize(&mut de).map_err(|e: DeError| ToONError::Message(e.msg))
+}
+
+struct DirectDeserializer<'a> {
+    lines: Vec<ParsedLine<'a>>,
+    idx: usize,
+    strict: bool,
+}
+
+impl<'a> DirectDeserializer<'a> {
+    fn skip_blanks(&mut self) {
+        while let Some(pl) = self.lines.get(self.idx) {
+            if matches!(pl.kind, LineKind::Blank) { self.idx += 1; } else { break; }
+        }
+    }
+    fn peek(&self) -> Option<&ParsedLine<'a>> { self.lines.get(self.idx) }
+    fn next(&mut self) -> Option<&ParsedLine<'a>> { let i = self.idx; self.idx += 1; self.lines.get(i) }
+
+    fn parse_key(&self, k: &str) -> String {
+        if let Some(s) = unescape_json_string(k) { return s; }
+        k.to_string()
+    }
+
+    fn classify_primitive(s: &str) -> Primitive {
+        if let Some(st) = unescape_json_string(s) { return Primitive::Str(st); }
+        match s {
+            "true" => return Primitive::Bool(true),
+            "false" => return Primitive::Bool(false),
+            "null" => return Primitive::Null,
+            _ => {}
+        }
+        let bs = s.as_bytes();
+        if !bs.is_empty() {
+            if bs[0] == b'-' { if bs.len()>1 && bs[1..].iter().all(|c| c.is_ascii_digit()) { if let Ok(i)=s.parse::<i64>() { return Primitive::I64(i);} } }
+            else if bs.iter().all(|c| c.is_ascii_digit()) { if let Ok(u)=s.parse::<u64>() { return Primitive::U64(u);} }
+        }
+        if let Ok(f)=s.parse::<f64>() { return Primitive::F64(f); }
+        Primitive::Str(s.to_string())
+    }
+}
+
+impl<'de, 'a> de::Deserializer<'de> for &mut DirectDeserializer<'a> {
+    type Error = DeError;
+
+    fn deserialize_any<V>(mut self, visitor: V) -> core::result::Result<V::Value, Self::Error>
+    where V: de::Visitor<'de> {
+        self.skip_blanks();
+        let Some(pl) = self.peek() else { return visitor.visit_unit(); };
+        let indent = pl.indent;
+        match &pl.kind {
+            LineKind::ListItem { .. } => {
+                // Root is an array
+                let mut sa = SeqDe { de: self, indent };
+                visitor.visit_seq(&mut sa)
+            }
+            LineKind::KeyValue { .. } | LineKind::KeyOnly { .. } => {
+                let mut ma = MapDe { de: self, indent, pending: None };
+                visitor.visit_map(&mut ma)
+            }
+            LineKind::Scalar(s) => {
+                let tok = DirectDeserializer::classify_primitive(s);
+                PrimDe(tok).deserialize_any(visitor)
+            }
+            LineKind::Blank => visitor.visit_unit(),
+        }
+    }
+
+    serde::forward_to_deserialize_any! {
+        bool i8 i16 i32 i64 u8 u16 u32 u64 f32 f64 char str string bytes byte_buf
+        option unit unit_struct newtype_struct seq tuple tuple_struct map struct
+        enum identifier ignored_any
+    }
+}
+
+enum Primitive { Null, Bool(bool), I64(i64), U64(u64), F64(f64), Str(String) }
+struct PrimDe(Primitive);
+impl<'de> de::Deserializer<'de> for PrimDe {
+    type Error = DeError;
+    fn deserialize_any<V>(self, visitor: V) -> core::result::Result<V::Value, Self::Error>
+    where V: de::Visitor<'de> {
+        match self.0 {
+            Primitive::Null => visitor.visit_unit(),
+            Primitive::Bool(b) => visitor.visit_bool(b),
+            Primitive::I64(i) => visitor.visit_i64(i),
+            Primitive::U64(u) => visitor.visit_u64(u),
+            Primitive::F64(f) => visitor.visit_f64(f),
+            Primitive::Str(s) => visitor.visit_string(s),
+        }
+    }
+    serde::forward_to_deserialize_any! {
+        bool i8 i16 i32 i64 u8 u16 u32 u64 f32 f64 char str string bytes byte_buf
+        option unit unit_struct newtype_struct seq tuple tuple_struct map struct
+        enum identifier ignored_any
+    }
+}
+
+struct SeqDe<'a, 'b> { de: &'b mut DirectDeserializer<'a>, indent: usize }
+impl<'de, 'a, 'b> SeqAccess<'de> for SeqDe<'a, 'b> {
+    type Error = DeError;
+    fn next_element_seed<T>(&mut self, seed: T) -> core::result::Result<Option<T::Value>, Self::Error>
+    where T: de::DeserializeSeed<'de> {
+        self.de.skip_blanks();
+        // Snapshot to avoid borrowing across next()
+        let val_opt: Option<&str> = if let Some(pl) = self.de.peek() {
+            if pl.indent != self.indent { return Ok(None); }
+            match &pl.kind { LineKind::ListItem { value } => value.clone(), _ => return Ok(None) }
+        } else { return Ok(None) };
+        self.de.next();
+        if let Some(vs) = val_opt {
+            let tok = DirectDeserializer::classify_primitive(vs);
+            let de = PrimDe(tok);
+            seed.deserialize(de).map(Some)
+        } else {
+            // "-" as empty object
+            let mut ma = MapDe { de: self.de, indent: self.indent + 2, pending: None };
+            seed.deserialize(de::value::MapAccessDeserializer::new(&mut ma)).map(Some)
+        }
+    }
+}
+
+struct MapDe<'a, 'b> {
+    de: &'b mut DirectDeserializer<'a>,
+    indent: usize,
+    pending: Option<(String, ValueKind<'a>)>,
+}
+
+enum ValueKind<'a> { Scalar(&'a str), Array { child_indent: usize }, Tabular { dch: char, header: Vec<String>, child_indent: usize } }
+
+impl<'de, 'a, 'b> MapAccess<'de> for MapDe<'a, 'b> {
+    type Error = DeError;
+
+    fn next_key_seed<K>(&mut self, seed: K) -> core::result::Result<Option<K::Value>, Self::Error>
+    where K: de::DeserializeSeed<'de> {
+        self.de.skip_blanks();
+        // Snapshot key/value before advancing
+        let snapshot = if let Some(pl) = self.de.peek() {
+            if pl.indent != self.indent { return Ok(None); }
+            match &pl.kind {
+                LineKind::KeyValue { key, value } => (Some(*key), Some(*value)),
+                LineKind::KeyOnly { key } => (Some(*key), None),
+                _ => return Ok(None),
+            }
+        } else { return Ok(None) };
+        match snapshot {
+            (Some(kref), Some(vref)) => {
+                self.de.next();
+                let k = self.de.parse_key(kref);
+                self.pending = Some((k.clone(), ValueKind::Scalar(vref)));
+                seed.deserialize(k.into_deserializer()).map(Some)
+            }
+            (Some(kref), None) => {
+                self.de.next();
+                let k = self.de.parse_key(kref);
+                let child_indent = self.indent + 2;
+                // Detect tabular header
+                let vkind = if let Some(nl) = self.de.peek() {
+                    if nl.indent == child_indent {
+                        if let LineKind::Scalar(s) = &nl.kind {
+                            if let Some((dch, hdr)) = parse_header(s) {
+                                self.de.next(); // consume header line
+                                let fields = split_delim_aware(hdr, dch).into_iter().map(|f| self.de.parse_key(f)).collect::<Vec<_>>();
+                                ValueKind::Tabular { dch, header: fields, child_indent }
+                            } else { ValueKind::Array { child_indent } }
+                        } else { ValueKind::Array { child_indent } }
+                    } else { ValueKind::Array { child_indent } }
+                } else { ValueKind::Array { child_indent } };
+                self.pending = Some((k.clone(), vkind));
+                seed.deserialize(k.into_deserializer()).map(Some)
+            }
+            _ => Ok(None),
+        }
+    }
+
+    fn next_value_seed<VV>(&mut self, seed: VV) -> core::result::Result<VV::Value, Self::Error>
+    where VV: de::DeserializeSeed<'de> {
+        let (k, vk) = self.pending.take().ok_or_else(|| DeError{ msg: "value requested without key".into() })?;
+        match vk {
+            ValueKind::Scalar(s) => seed.deserialize(PrimDe(DirectDeserializer::classify_primitive(s))),
+            ValueKind::Array { child_indent } => {
+                let mut sa = SeqDe { de: self.de, indent: child_indent };
+                seed.deserialize(de::value::SeqAccessDeserializer::new(&mut sa))
+            }
+            ValueKind::Tabular { dch, header, child_indent } => {
+                let mut ta = TabularSeqDe { de: self.de, indent: child_indent, dch, header };
+                seed.deserialize(de::value::SeqAccessDeserializer::new(&mut ta))
+            }
+        }
+    }
+}
+
+struct TabularSeqDe<'a, 'b> { de: &'b mut DirectDeserializer<'a>, indent: usize, dch: char, header: Vec<String> }
+impl<'de, 'a, 'b> SeqAccess<'de> for TabularSeqDe<'a, 'b> {
+    type Error = DeError;
+    fn next_element_seed<T>(&mut self, seed: T) -> core::result::Result<Option<T::Value>, Self::Error>
+    where T: de::DeserializeSeed<'de> {
+        self.de.skip_blanks();
+        // Snapshot row string before advancing
+        let rs_opt: Option<&str> = if let Some(pl) = self.de.peek() {
+            if pl.indent != self.indent { return Ok(None); }
+            match &pl.kind { LineKind::ListItem { value: Some(rs) } => Some(*rs), _ => return Ok(None) }
+        } else { return Ok(None) };
+        let row_line = self.de.idx + 1;
+        self.de.next();
+        let rs = rs_opt.unwrap();
+        let cells = split_delim_aware(rs, self.dch);
+            if self.de.strict && cells.len() != self.header.len() {
+                return Err(DeError{ msg: format!("row cell count {} does not match header {} at line {}", cells.len(), self.header.len(), row_line) });
+            }
+            let mut rma = RowMapDe { header: &self.header, cells, idx: 0 };
+            seed.deserialize(de::value::MapAccessDeserializer::new(&mut rma)).map(Some)
+    }
+}
+
+struct RowMapDe<'h> { header: &'h [String], cells: Vec<&'h str>, idx: usize }
+impl<'de, 'h> MapAccess<'de> for RowMapDe<'h> {
+    type Error = DeError;
+    fn next_key_seed<K>(&mut self, seed: K) -> core::result::Result<Option<K::Value>, Self::Error>
+    where K: de::DeserializeSeed<'de> {
+        if self.idx >= self.header.len() { return Ok(None); }
+        let key = &self.header[self.idx];
+        seed.deserialize(key.clone().into_deserializer()).map(Some)
+    }
+    fn next_value_seed<V>(&mut self, seed: V) -> core::result::Result<V::Value, Self::Error>
+    where V: de::DeserializeSeed<'de> {
+        let i = self.idx; self.idx += 1;
+        let s = self.cells.get(i).copied().unwrap_or("null");
+        seed.deserialize(PrimDe(DirectDeserializer::classify_primitive(s)))
+    }
+}
+
+fn parse_header(s: &str) -> Option<(char, &str)> {
+    let mut it = s.chars();
+    if it.next()? != '@' { return None; }
+    let dch = it.next()?;
+    Some((dch, s[2..].trim_start()))
+}
+
+fn unescape_json_string(s: &str) -> Option<String> {
+    if !s.starts_with('"') || !s.ends_with('"') || s.len() < 2 { return None; }
+    let inner = &s[1..s.len()-1];
+    let mut out = String::with_capacity(inner.len());
+    let mut chars = inner.chars();
+    while let Some(ch) = chars.next() {
+        if ch == '\\' {
+            match chars.next()? {
+                '"' => out.push('"'),
+                '\\' => out.push('\\'),
+                '/' => out.push('/'),
+                'b' => out.push('\u{0008}'),
+                'f' => out.push('\u{000C}'),
+                'n' => out.push('\n'),
+                'r' => out.push('\r'),
+                't' => out.push('\t'),
+                'u' => {
+                    let mut code = 0u32;
+                    for _ in 0..4 { let d = chars.next()?; code = (code << 4) | hex_val(d)?; }
+                    if let Some(c) = core::char::from_u32(code) { out.push(c); } else { return None; }
+                }
+                _ => return None,
+            }
+        } else { out.push(ch); }
+    }
+    Some(out)
+}
+
+fn hex_val(c: char) -> Option<u32> {
+    match c { '0'..='9' => Some((c as u32) - ('0' as u32)), 'a'..='f' => Some(10 + (c as u32) - ('a' as u32)), 'A'..='F' => Some(10 + (c as u32) - ('A' as u32)), _ => None }
+}
+
+fn split_delim_aware<'a>(s: &'a str, dch: char) -> Vec<&'a str> {
+    #[cfg(feature = "perf_memchr")]
+    {
+        // Reuse parser's optimized splitter if available via cfg; else local slow path
+    }
+    let bytes = s.as_bytes();
+    let mut out: Vec<&'a str> = Vec::new();
+    let mut in_str = false; let mut escape = false; let mut start = 0usize; let delim = dch as u8;
+    for (i, &b) in bytes.iter().enumerate() {
+        if in_str {
+            if escape { escape = false; continue; }
+            match b { b'\\' => { escape = true; }, b'"' => { in_str = false; }, _ => {} }
+            continue;
+        } else {
+            if b == b'"' { in_str = true; continue; }
+            if b == delim { let tok = s[start..i].trim(); if !tok.is_empty() { out.push(tok); } start = i + 1; }
+        }
+    }
+    if start < bytes.len() { let tok = s[start..].trim(); if !tok.is_empty() { out.push(tok); } }
+    out
+}

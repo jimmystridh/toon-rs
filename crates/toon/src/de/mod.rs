@@ -6,7 +6,10 @@ use alloc::{format, string::String, vec::Vec};
 use serde::de::{self, DeserializeOwned, IntoDeserializer, MapAccess, SeqAccess};
 
 use crate::value::{Number, Value};
-use crate::{Result, options::Options};
+use crate::{options::Options, Result};
+
+#[cfg(feature = "de_direct")]
+pub mod direct;
 
 #[derive(Debug)]
 pub struct DeError {
@@ -131,17 +134,21 @@ impl<'de> de::Deserializer<'de> for Deserializer {
 }
 
 pub fn from_str<T: DeserializeOwned>(s: &str, options: &Options) -> Result<T> {
-    let lines = crate::decode::scanner::scan(s);
-    if options.strict {
-        if let Err(e) = crate::decode::validation::validate_indentation(&lines) {
-            return Err(crate::error::Error::Syntax {
-                line: e.line,
-                message: e.message,
-            });
-        }
+    #[cfg(feature = "de_direct")]
+    {
+        return crate::de::direct::from_str(s, options);
     }
-    let v = crate::decode::parser::parse_to_internal_value_from_lines(lines, options.strict)?;
-    let deser = Deserializer::from_value(v);
-    let t = T::deserialize(deser).map_err(|e: DeError| crate::error::Error::Message(e.msg))?;
-    Ok(t)
+    #[cfg(not(feature = "de_direct"))]
+    {
+        let lines = crate::decode::scanner::scan(s);
+        if options.strict {
+            if let Err(e) = crate::decode::validation::validate_indentation(&lines) {
+                return Err(crate::error::Error::Syntax { line: e.line, message: e.message });
+            }
+        }
+        let v = crate::decode::parser::parse_to_internal_value_from_lines(lines, options.strict)?;
+        let deser = Deserializer::from_value(v);
+        let t = T::deserialize(deser).map_err(|e: DeError| crate::error::Error::Message(e.msg))?;
+        Ok(t)
+    }
 }
