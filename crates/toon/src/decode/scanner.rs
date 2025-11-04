@@ -25,6 +25,33 @@ fn leading_spaces(s: &str) -> usize {
 }
 
 #[inline]
+#[cfg(feature = "perf_memchr")]
+fn find_unquoted_colon(s: &str) -> Option<usize> {
+    let b = s.as_bytes();
+    let mut in_str = false;
+    let mut escape = false;
+    let mut i = 0usize;
+    while i < b.len() {
+        if in_str {
+            if escape { escape = false; i += 1; continue; }
+            if let Some(rel) = memchr::memchr2(b'"', b'\\', &b[i..]) {
+                let idx = i + rel;
+                match b[idx] { b'\\' => { escape = true; i = idx + 1; }, b'"' => { in_str = false; i = idx + 1; }, _ => unreachable!() }
+                continue;
+            } else { return None; }
+        } else {
+            if let Some(rel) = memchr::memchr2(b'"', b':', &b[i..]) {
+                let idx = i + rel;
+                match b[idx] { b'"' => { in_str = true; i = idx + 1; }, b':' => { return Some(idx); }, _ => unreachable!() }
+                continue;
+            } else { return None; }
+        }
+    }
+    None
+}
+
+#[inline]
+#[cfg(not(feature = "perf_memchr"))]
 fn find_unquoted_colon(s: &str) -> Option<usize> {
     let b = s.as_bytes();
     let mut in_str = false;
@@ -33,17 +60,9 @@ fn find_unquoted_colon(s: &str) -> Option<usize> {
         let ch = b[i];
         if in_str {
             if escape { escape = false; continue; }
-            match ch {
-                b'\\' => { escape = true; }
-                b'"' => { in_str = false; }
-                _ => {}
-            }
+            match ch { b'\\' => { escape = true; }, b'"' => { in_str = false; }, _ => {} }
         } else {
-            match ch {
-                b'"' => { in_str = true; }
-                b':' => { return Some(i); }
-                _ => {}
-            }
+            match ch { b'"' => { in_str = true; }, b':' => { return Some(i); }, _ => {} }
         }
     }
     None

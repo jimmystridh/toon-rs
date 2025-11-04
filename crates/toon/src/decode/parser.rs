@@ -321,8 +321,67 @@ fn parse_header(s: &str) -> Option<(char, &str)> {
     Some((dch, rest.trim_start()))
 }
 
+#[cfg(feature = "perf_memchr")]
 fn split_delim_aware<'a>(s: &'a str, dch: char) -> Vec<&'a str> {
     let bytes = s.as_bytes();
+    let delim = dch as u8;
+    #[cfg(feature = "perf_smallvec")]
+    let mut out: smallvec::SmallVec<[&'a str; 8]> = smallvec::SmallVec::new();
+    #[cfg(not(feature = "perf_smallvec"))]
+    let mut out: Vec<&'a str> = Vec::new();
+
+    let mut in_str = false;
+    let mut escape = false;
+    let mut start = 0usize;
+    let mut i = 0usize;
+    while i < bytes.len() {
+        if in_str {
+            // Inside quotes, only '"' and '\\' matter; delimiter is ignored.
+            if escape {
+                escape = false;
+                i += 1;
+                continue;
+            }
+            if let Some(rel) = memchr::memchr2(b'"', b'\\', &bytes[i..]) {
+                let idx = i + rel;
+                match bytes[idx] {
+                    b'\\' => { escape = true; i = idx + 1; }
+                    b'"' => { in_str = false; i = idx + 1; }
+                    _ => unreachable!(),
+                }
+                continue;
+            } else { break; }
+        } else {
+            // Outside quotes, any of '"' or delimiter are interesting.
+            if let Some(rel) = memchr::memchr2(b'"', delim, &bytes[i..]) {
+                let idx = i + rel;
+                let b = bytes[idx];
+                if b == b'"' { in_str = true; i = idx + 1; continue; }
+                // delimiter
+                let token = s[start..idx].trim();
+                if !token.is_empty() { out.push(token); }
+                start = idx + 1;
+                i = start;
+                continue;
+            } else { break; }
+        }
+    }
+    if start < bytes.len() {
+        let token = s[start..].trim();
+        if !token.is_empty() { out.push(token); }
+    }
+    #[cfg(feature = "perf_smallvec")]
+    { return out.into_vec(); }
+    #[cfg(not(feature = "perf_smallvec"))]
+    { return out; }
+}
+
+#[cfg(not(feature = "perf_memchr"))]
+fn split_delim_aware<'a>(s: &'a str, dch: char) -> Vec<&'a str> {
+    let bytes = s.as_bytes();
+    #[cfg(feature = "perf_smallvec")]
+    let mut out: smallvec::SmallVec<[&'a str; 8]> = smallvec::SmallVec::new();
+    #[cfg(not(feature = "perf_smallvec"))]
     let mut out: Vec<&'a str> = Vec::new();
     let mut in_str = false;
     let mut escape = false;
@@ -333,48 +392,28 @@ fn split_delim_aware<'a>(s: &'a str, dch: char) -> Vec<&'a str> {
     while i < len {
         let b = bytes[i];
         if in_str {
-            if escape {
-                escape = false;
-                i += 1;
-                continue;
-            }
-            match b {
-                b'\\' => {
-                    escape = true;
-                }
-                b'"' => {
-                    in_str = false;
-                }
-                _ => {}
-            }
+            if escape { escape = false; i += 1; continue; }
+            match b { b'\\' => { escape = true; }, b'"' => { in_str = false; }, _ => {} }
             i += 1;
             continue;
         } else {
-            match b {
-                b'"' => {
-                    in_str = true;
-                }
-                _ => {
-                    if b == delim {
-                        // token = s[start..i].trim()
-                        let token = s[start..i].trim();
-                        if !token.is_empty() {
-                            out.push(token);
-                        }
-                        start = i + 1;
-                    }
-                }
+            if b == b'"' { in_str = true; i += 1; continue; }
+            if b == delim {
+                let token = s[start..i].trim();
+                if !token.is_empty() { out.push(token); }
+                start = i + 1;
             }
             i += 1;
         }
     }
     if start < len {
         let token = s[start..len].trim();
-        if !token.is_empty() {
-            out.push(token);
-        }
+        if !token.is_empty() { out.push(token); }
     }
-    out
+    #[cfg(feature = "perf_smallvec")]
+    { return out.into_vec(); }
+    #[cfg(not(feature = "perf_smallvec"))]
+    { return out; }
 }
 
 fn is_quoted_token(s: &str) -> bool {
