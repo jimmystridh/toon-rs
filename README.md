@@ -217,6 +217,19 @@ cargo fmt --all
 cargo clippy --workspace -- -D warnings
 ```
 
+### Conformance: finer-grained runs
+
+```bash
+# Only the conformance test file
+TOON_CONFORMANCE=1 cargo test -p toon --test spec_conformance
+
+# Filter to one group
+TOON_CONFORMANCE=1 cargo test -p toon --test spec_conformance decode_fixtures
+TOON_CONFORMANCE=1 cargo test -p toon --test spec_conformance encode_fixtures
+```
+
+Note: Tests are skipped if TOON_CONFORMANCE is unset or fixtures are missing under spec/tests/fixtures. Decode conformance runs with strict validation; encode comparison normalizes newlines.
+
 ## Project Structure
 
 ```
