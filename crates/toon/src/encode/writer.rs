@@ -1,3 +1,6 @@
+#[cfg(not(feature = "std"))]
+use alloc::string::String;
+
 pub struct LineWriter {
     out: String,
 }

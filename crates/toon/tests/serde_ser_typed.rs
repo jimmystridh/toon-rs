@@ -1,3 +1,4 @@
+#![cfg(feature = "json")]
 use serde::{Serialize, Deserialize};
 use toon::Options;
 

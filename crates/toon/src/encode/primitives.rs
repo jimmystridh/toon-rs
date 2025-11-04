@@ -1,3 +1,6 @@
+#[cfg(not(feature = "std"))]
+use alloc::string::{String, ToString};
+
 use crate::options::Delimiter;
 
 pub fn delimiter_char(delim: Delimiter) -> char {
@@ -44,7 +47,7 @@ pub fn escape_and_quote(s: &str) -> String {
             '\r' => { out.push_str("\\r"); }
             '\t' => { out.push_str("\\t"); }
             c if is_control(c) => {
-                use std::fmt::Write as _;
+                use core::fmt::Write as _;
                 let _ = write!(out, "\\u{:04X}", c as u32);
             }
             c => out.push(c),

@@ -2,15 +2,17 @@
 
 pub mod primitives;
 pub mod writer;
+#[cfg(feature = "json")]
 pub mod encoders;
+#[cfg(feature = "json")]
 pub mod normalize;
 
 use crate::{options::Options, Result};
 
-#[cfg(feature = "serde")]
+#[cfg(all(feature = "serde", feature = "json"))]
 use serde_json::Value;
 
-#[cfg(feature = "serde")]
+#[cfg(all(feature = "serde", feature = "json"))]
 pub fn encode_value_to_string(value: &Value, options: &Options) -> Result<String> {
     let mut w = writer::LineWriter::new();
     let v = crate::encode::normalize::normalize_value(value);

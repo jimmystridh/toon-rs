@@ -1,3 +1,4 @@
+#![cfg(feature = "json")]
 use serde_json::json;
 
 #[test]

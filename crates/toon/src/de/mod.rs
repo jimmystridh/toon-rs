@@ -1,9 +1,23 @@
-//! serde::Deserializer implementation backed by parsed Value
+//! serde::Deserializer implementation backed by internal Value (alloc-friendly)
 
-use serde::de::{self, DeserializeOwned, IntoDeserializer};
-use serde_json::Value;
+#[cfg(not(feature = "std"))]
+use alloc::{format, string::String, vec::Vec};
+
+use serde::de::{self, DeserializeOwned, IntoDeserializer, Visitor, SeqAccess, MapAccess};
 
 use crate::{options::Options, Result};
+use crate::value::{Value, Number};
+
+#[derive(Debug)]
+pub struct DeError { msg: String }
+
+impl core::fmt::Display for DeError {
+    fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result { f.write_str(&self.msg) }
+}
+impl de::Error for DeError {
+    fn custom<T: core::fmt::Display>(t: T) -> Self { DeError { msg: format!("{}", t) } }
+}
+impl core::error::Error for DeError {}
 
 pub struct Deserializer {
     value: Value,
@@ -14,13 +28,59 @@ impl Deserializer {
 }
 
 impl<'de> de::Deserializer<'de> for Deserializer {
-    type Error = serde_json::Error;
+    type Error = DeError;
 
-    fn deserialize_any<V>(self, visitor: V) -> std::result::Result<V::Value, Self::Error>
+    fn deserialize_any<V>(self, visitor: V) -> core::result::Result<V::Value, Self::Error>
     where
         V: de::Visitor<'de>,
     {
-        self.value.into_deserializer().deserialize_any(visitor)
+        match self.value {
+            Value::Null => visitor.visit_unit(),
+            Value::Bool(b) => visitor.visit_bool(b),
+            Value::Number(n) => match n {
+                Number::I64(i) => visitor.visit_i64(i),
+                Number::U64(u) => visitor.visit_u64(u),
+                Number::F64(f) => visitor.visit_f64(f),
+            },
+            Value::String(s) => visitor.visit_string(s),
+            Value::Array(arr) => {
+                struct SA { elems: Vec<Value>, idx: usize }
+                impl<'de> SeqAccess<'de> for SA {
+                    type Error = DeError;
+                    fn next_element_seed<T>(&mut self, seed: T) -> core::result::Result<Option<T::Value>, Self::Error>
+                    where T: de::DeserializeSeed<'de> {
+                        if self.idx >= self.elems.len() { return Ok(None); }
+                        let v = core::mem::replace(&mut self.elems[self.idx], Value::Null);
+                        self.idx += 1;
+                        let de = Deserializer { value: v };
+                        seed.deserialize(de).map(Some)
+                    }
+                }
+                visitor.visit_seq(SA { elems: arr, idx: 0 })
+            }
+            Value::Object(obj) => {
+                struct MA { entries: Vec<(String, Value)>, idx: usize, next_val: Option<Value> }
+                impl<'de> MapAccess<'de> for MA {
+                    type Error = DeError;
+                    fn next_key_seed<K>(&mut self, seed: K) -> core::result::Result<Option<K::Value>, Self::Error>
+                    where K: de::DeserializeSeed<'de> {
+                        if self.idx >= self.entries.len() { return Ok(None); }
+                        let (ref key, ref val) = self.entries[self.idx];
+                        let de_key = key.clone().into_deserializer();
+                        self.next_val = Some(val.clone());
+                        seed.deserialize(de_key).map(Some)
+                    }
+                    fn next_value_seed<VV>(&mut self, seed: VV) -> core::result::Result<VV::Value, Self::Error>
+                    where VV: de::DeserializeSeed<'de> {
+                        let v = self.next_val.take().unwrap_or(Value::Null);
+                        self.idx += 1;
+                        let de = Deserializer { value: v };
+                        seed.deserialize(de)
+                    }
+                }
+                visitor.visit_map(MA { entries: obj, idx: 0, next_val: None })
+            }
+        }
     }
 
     serde::forward_to_deserialize_any! {
@@ -31,8 +91,14 @@ impl<'de> de::Deserializer<'de> for Deserializer {
 }
 
 pub fn from_str<T: DeserializeOwned>(s: &str, options: &Options) -> Result<T> {
+    if options.strict {
+        let lines = crate::decode::scanner::scan(s);
+        if let Err(e) = crate::decode::validation::validate_indentation(&lines) {
+            return Err(crate::error::Error::Syntax { line: e.line, message: e.message });
+        }
+    }
     let v = crate::decode::parser::parse_to_value_with_strict(s, options.strict)?;
     let deser = Deserializer::from_value(v);
-    let t = T::deserialize(deser).map_err(crate::error::Error::from)?;
+    let t = T::deserialize(deser).map_err(|e: DeError| crate::error::Error::Message(e.msg))?;
     Ok(t)
 }

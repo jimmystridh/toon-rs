@@ -1,3 +1,4 @@
+#![cfg(feature = "json")]
 use serde::Serialize;
 
 #[derive(Serialize)]

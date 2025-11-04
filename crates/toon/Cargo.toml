@@ -12,14 +12,23 @@ keywords = ["toon", "serialization", "serde"]
 categories = ["encoding", "parser-implementations"]
 
 [features]
-default = ["std", "serde"]
+# Default keeps current behavior: std + serde + json interop
+default = ["std", "serde", "json"]
+
+# std/alloc feature gates
 std = []
 alloc = []
-serde = ["dep:serde", "dep:serde_json"]
-chrono = ["dep:chrono"]
+
+# Serde integration does not imply serde_json
+serde = ["dep:serde"]
+# JSON interop (serde_json) requires std
+json = ["dep:serde_json", "serde", "std"]
+
+# chrono currently requires std in this crate configuration
+chrono = ["dep:chrono", "std"]
 
 [dependencies]
-serde = { version = "1.0", features = ["derive"], optional = true }
+serde = { version = "1.0", default-features = false, features = ["derive", "alloc"], optional = true }
 serde_json = { version = "1.0", optional = true }
 thiserror = "1.0"
 chrono = { version = "0.4", default-features = false, features = ["clock", "std", "serde"], optional = true }

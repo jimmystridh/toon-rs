@@ -1,3 +1,6 @@
+#[cfg(not(feature = "std"))]
+use alloc::{string::{String, ToString}, vec::Vec};
+
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct ParsedLine {
     pub indent: usize,

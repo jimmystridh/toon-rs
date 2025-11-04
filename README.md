@@ -217,6 +217,16 @@ cargo fmt --all
 cargo clippy --workspace -- -D warnings
 ```
 
+### no_std / alloc builds
+
+```bash
+# Build (alloc-only)
+cargo check -p toon --no-default-features --features "alloc,serde"
+
+# Run alloc-only tests (JSON interop disabled)
+cargo test -p toon --no-default-features --features "alloc,serde"
+```
+
 ### Conformance: finer-grained runs
 
 ```bash

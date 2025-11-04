@@ -1,6 +1,9 @@
 use crate::decode::scanner::{ParsedLine, LineKind, scan};
 
-use serde_json::{Map, Number, Value};
+#[cfg(not(feature = "std"))]
+use alloc::{format, string::{String, ToString}, vec::Vec};
+
+use crate::value::{Value, Number};
 
 pub struct Parser {
     lines: Vec<ParsedLine>,
@@ -32,7 +35,7 @@ impl Parser {
 
     fn parse_scalar_token(&self, s: &str) -> Value {
         if s.starts_with('"') {
-            if let Ok(st) = serde_json::from_str::<String>(s) { return Value::String(st); }
+            if let Some(st) = unescape_json_string(s) { return Value::String(st); }
         }
         match s {
             "true" => return Value::Bool(true),
@@ -40,17 +43,15 @@ impl Parser {
             "null" => return Value::Null,
             _ => {}
         }
-        if let Ok(i) = s.parse::<i64>() { return Value::Number(Number::from(i)); }
-        if let Ok(u) = s.parse::<u64>() { return Value::Number(Number::from(u)); }
-        if let Ok(f) = s.parse::<f64>() {
-            if let Some(n) = Number::from_f64(f) { return Value::Number(n); }
-        }
+        if let Ok(i) = s.parse::<i64>() { return Value::Number(Number::I64(i)); }
+        if let Ok(u) = s.parse::<u64>() { return Value::Number(Number::U64(u)); }
+        if let Ok(f) = s.parse::<f64>() { return Value::Number(Number::F64(f)); }
         Value::String(s.to_string())
     }
 
     fn parse_key_token(&self, k: &str) -> String {
         if k.starts_with('"') {
-            if let Ok(st) = serde_json::from_str::<String>(k) { return st; }
+            if let Some(st) = unescape_json_string(k) { return st; }
         }
         k.to_string()
     }
@@ -82,7 +83,7 @@ impl Parser {
     }
 
     fn parse_object(&mut self, indent: usize) -> Value {
-        let mut map = Map::new();
+        let mut map: Vec<(String, Value)> = Vec::new();
         loop {
             self.skip_blanks();
             let kind = {
@@ -95,7 +96,7 @@ impl Parser {
                     self.next();
                     let k = self.parse_key_token(&key);
                     let v = self.parse_scalar_token(&value);
-                    map.insert(k, v);
+                    map.push((k, v));
                 }
                 LineKind::KeyOnly { key } => {
                     self.next();
@@ -117,9 +118,7 @@ impl Parser {
                                     let raw_header_tokens = split_delim_aware(header_str, dch);
                                     let header_keys = raw_header_tokens.iter().map(|h| self.parse_key_token(h)).collect::<Vec<_>>();
                                     // Strict: header must be non-empty and unique keys, and tokens requiring quotes must be quoted
-                                    if self.strict {
-                                        use std::collections::HashSet;
-                                        let mut set = HashSet::new();
+if self.strict {
                                         if header_keys.is_empty() {
                                             let line_no = self.idx; // just consumed header
                                             self.error = Some(crate::error::Error::Syntax { line: line_no, message: "empty tabular header".to_string() });
@@ -131,16 +130,18 @@ impl Parser {
                                                 break;
                                             }
                                         }
-                                        for k in &header_keys {
-                                            if !set.insert(k) {
-                                                let line_no = self.idx; // header line
-                                                self.error = Some(crate::error::Error::Syntax { line: line_no, message: format!("duplicate header key: {}", k) });
-                                                break;
+                                        for i in 0..header_keys.len() {
+                                            for j in (i+1)..header_keys.len() {
+                                                if header_keys[i] == header_keys[j] {
+                                                    let line_no = self.idx; // header line
+                                                    self.error = Some(crate::error::Error::Syntax { line: line_no, message: format!("duplicate header key: {}", header_keys[i]) });
+                                                    break;
+                                                }
                                             }
                                         }
                                     }
                                     let expected_cells = header_keys.len();
-                                    let mut rows = Vec::new();
+                                    let mut rows: Vec<Value> = Vec::new();
                                     loop {
                                         // strict: no blank lines inside table block
                                         if self.strict {
@@ -166,10 +167,10 @@ impl Parser {
                                                     self.error = Some(crate::error::Error::Syntax { line: row_line, message: "trailing delimiter in row".to_string() });
                                                 }
                                                 let cells = split_delim_aware(&rs, dch);
-                                                if self.strict && cells.len() != expected_cells {
+                                                if self.strict && self.error.is_none() && cells.len() != expected_cells {
                                                     self.error = Some(crate::error::Error::Syntax { line: row_line, message: format!("row cell count {} does not match header {}", cells.len(), expected_cells) });
                                                 }
-                                                if self.strict {
+                                                if self.strict && self.error.is_none() {
                                                     for ctok in &cells {
                                                         if !is_quoted_token(ctok) && token_requires_quotes(ctok, dch) {
                                                             self.error = Some(crate::error::Error::Syntax { line: row_line, message: format!("unquoted cell requires quotes: {}", ctok) });
@@ -177,10 +178,10 @@ impl Parser {
                                                         }
                                                     }
                                                 }
-                                                let mut om = Map::new();
+                                                let mut om: Vec<(String, Value)> = Vec::new();
                                                 for (i, hk) in header_keys.iter().enumerate() {
                                                     let cell = cells.get(i).map(|s| s.as_str()).unwrap_or("null");
-                                                    om.insert(hk.clone(), self.parse_scalar_token(cell));
+                                                    om.push((hk.clone(), self.parse_scalar_token(cell)));
                                                 }
                                                 rows.push(Value::Object(om));
                                             }
@@ -191,7 +192,7 @@ impl Parser {
                                         let line_no = self.idx; // after header
                                         self.error = Some(crate::error::Error::Syntax { line: line_no, message: "empty table (no rows)".to_string() });
                                     }
-                                    map.insert(k.clone(), Value::Array(rows));
+                                    map.push((k.clone(), Value::Array(rows)));
                                     handled = true;
                                 }
                             }
@@ -199,7 +200,7 @@ impl Parser {
                     }
                     if !handled {
                         let v = self.parse_node(child_indent);
-                        map.insert(k, v);
+                        map.push((k, v));
                     }
                 }
                 _ => break,
@@ -275,17 +276,17 @@ fn is_quoted_token(s: &str) -> bool {
 }
 
 fn token_requires_quotes(s: &str, dch: char) -> bool {
-    let t = s;
-    if t.is_empty() { return true; }
-    if t.starts_with('-') && t.len() >= 2 && t.as_bytes()[1] == b' ' { return true; }
-    if t.starts_with(' ') || t.ends_with(' ') { return true; }
-    if t.contains(dch) { return true; }
-    if t.contains(':') { return true; }
-    if t.chars().any(|c| c == '"' || c == '\\' || (c as u32) < 0x20 || (c as u32) == 0x7F) { return true; }
-    false
+    use crate::options::Delimiter;
+    let delim = match dch {
+        ',' => Delimiter::Comma,
+        '\t' => Delimiter::Tab,
+        '|' => Delimiter::Pipe,
+        _ => Delimiter::Comma,
+    };
+    crate::encode::primitives::needs_quotes(s, delim)
 }
 
-pub fn parse_to_value(input: &str) -> Value {
+pub fn parse_to_internal_value(input: &str) -> Value {
     let mut p = Parser::from_str(input);
     p.parse_document()
 }
@@ -294,4 +295,75 @@ pub fn parse_to_value_with_strict(input: &str, strict: bool) -> Result<Value, cr
     let mut p = Parser::from_str_with_strict(input, strict);
     let v = p.parse_document();
     if let Some(err) = p.error { Err(err) } else { Ok(v) }
+}
+
+#[cfg(feature = "json")]
+pub fn parse_to_value(input: &str) -> serde_json::Value {
+    let v = parse_to_internal_value(input);
+    to_json_value(v)
+}
+
+#[cfg(feature = "json")]
+fn to_json_value(v: Value) -> serde_json::Value {
+    match v {
+        Value::Null => serde_json::Value::Null,
+        Value::Bool(b) => serde_json::Value::Bool(b),
+        Value::Number(n) => match n {
+            Number::I64(i) => serde_json::Value::Number(i.into()),
+            Number::U64(u) => serde_json::Value::Number(u.into()),
+            Number::F64(f) => serde_json::Number::from_f64(f)
+                .map(serde_json::Value::Number)
+                .unwrap_or_else(|| serde_json::Value::String(f.to_string())),
+        },
+        Value::String(s) => serde_json::Value::String(s),
+        Value::Array(a) => serde_json::Value::Array(a.into_iter().map(to_json_value).collect()),
+        Value::Object(pairs) => {
+            let mut m = serde_json::Map::new();
+            for (k, vv) in pairs { m.insert(k, to_json_value(vv)); }
+            serde_json::Value::Object(m)
+        }
+    }
+}
+
+fn unescape_json_string(s: &str) -> Option<String> {
+    // Expecting a JSON string literal like "..."
+    if !s.starts_with('"') || !s.ends_with('"') || s.len() < 2 { return None; }
+    let inner = &s[1..s.len()-1];
+    let mut out = String::with_capacity(inner.len());
+    let mut chars = inner.chars();
+    while let Some(ch) = chars.next() {
+        if ch == '\\' {
+            match chars.next()? {
+                '"' => out.push('"'),
+                '\\' => out.push('\\'),
+                '/' => out.push('/'),
+                'b' => out.push('\u{0008}'),
+                'f' => out.push('\u{000C}'),
+                'n' => out.push('\n'),
+                'r' => out.push('\r'),
+                't' => out.push('\t'),
+                'u' => {
+                    let mut code = 0u32;
+                    for _ in 0..4 {
+                        let d = chars.next()?;
+                        code = (code << 4) | hex_val(d)?;
+                    }
+                    if let Some(c) = core::char::from_u32(code) { out.push(c); } else { return None; }
+                }
+                _ => return None,
+            }
+        } else {
+            out.push(ch);
+        }
+    }
+    Some(out)
+}
+
+fn hex_val(c: char) -> Option<u32> {
+    match c {
+        '0'..='9' => Some((c as u32) - ('0' as u32)),
+        'a'..='f' => Some(10 + (c as u32) - ('a' as u32)),
+        'A'..='F' => Some(10 + (c as u32) - ('A' as u32)),
+        _ => None,
+    }
 }

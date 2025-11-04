@@ -1,4 +1,7 @@
 //! Strict-mode validation (basic)
+#[cfg(not(feature = "std"))]
+use alloc::{format, string::String};
+
 #[derive(Debug, Clone, Copy, Default)]
 pub struct StrictConfig {
     pub enabled: bool,

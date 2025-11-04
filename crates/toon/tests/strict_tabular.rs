@@ -1,3 +1,4 @@
+#![cfg(feature = "json")]
 use toon::Options;
 
 #[test]
