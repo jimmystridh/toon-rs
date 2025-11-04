@@ -16,6 +16,10 @@ Common commands
   - cargo clippy --workspace -D warnings
 - Optional features:
   - Enable chrono for DateTime: cargo test -p toon --features chrono
+  - Enable direct deserializer + perf: cargo test -p toon --features "de_direct perf_memchr perf_smallvec"
+- Benchmarks:
+  - Save baseline: cargo bench --bench decode_bench -- --sample-size 200 --measurement-time 10 --warm-up-time 5 --save-baseline before
+  - Compare with features: cargo bench --bench decode_bench --features "de_direct perf_memchr perf_smallvec" -- --sample-size 200 --measurement-time 10 --warm-up-time 5 --baseline before
 - no_std/alloc builds:
   - Build (alloc-only): cargo check -p toon --no-default-features --features "alloc,serde"
   - Run alloc-only tests: cargo test -p toon --no-default-features --features "alloc,serde"

@@ -4,12 +4,9 @@
 
 **Human-readable data serialization for the modern age**
 
-[![Crates.io](https://img.shields.io/crates/v/toon?style=flat-square)](https://crates.io/crates/toon)
-[![Documentation](https://img.shields.io/docsrs/toon?style=flat-square)](https://docs.rs/toon)
 [![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg?style=flat-square)](LICENSE)
-[![CI](https://img.shields.io/github/actions/workflow/status/toon-format/toon/ci.yml?style=flat-square)](https://github.com/toon-format/toon/actions)
 
-[Website](https://toonformat.dev) • [Documentation](https://docs.rs/toon) • [Examples](#examples) • [Contributing](#contributing)
+[Website](https://toonformat.dev) • [Examples](#examples) • [Contributing](#contributing)
 
 </div>
 
@@ -44,16 +41,24 @@ TOON automatically detects when arrays contain uniform objects and renders them 
 
 ## Features
 
-- **Zero-copy parsing** — Efficient deserialization without intermediate allocations
-- **Smart tabular arrays** — Automatic CSV-like rendering for homogeneous object arrays
-- **Strict mode** — Optional validation for production-grade data integrity
-- **Streaming serialization** — Memory-efficient encoding of large datasets
-- **Full serde integration** — Serialize/deserialize any Rust type with `#[derive]`
-- **DateTime support** — Native `chrono` integration (optional feature)
-- **Powerful CLI** — Standalone tool for JSON ↔ TOON conversion
-- **Spec conformant** — Comprehensive test suite against official fixtures
-- **Configurable delimiters** — Use `|`, `,`, or custom separators
-- **No-std support** — Works in embedded environments (with `alloc`)
+- Zero-copy scanner and parser (borrowed slices) for fast decode
+- Direct serde::Deserializer over the scanner (feature `de_direct`)
+- Smart tabular arrays — CSV-like rows under a header for uniform object arrays
+- Strict mode — Optional validation for production-grade data integrity
+- Streaming serialization — Memory-efficient encoding of large datasets
+- Full serde integration — Serialize/deserialize any Rust type with `#[derive]`
+- DateTime support — Native `chrono` integration (optional feature)
+- Powerful CLI — Standalone tool for JSON ↔ TOON conversion
+- Spec conformant — Comprehensive test suite against official fixtures
+- Configurable delimiters — Use comma (default), tab, or pipe
+- No-std support — Works in embedded environments (with `alloc`)
+
+Feature flags:
+- `de_direct` — enable direct Deserializer (bypasses intermediate JSON Value)
+- `perf_memchr` — faster scanning/splitting via memchr
+- `perf_smallvec` — reduce small allocations in hot paths
+- `perf_lexical` — faster numeric parsing via lexical-core
+- `chrono` — DateTime support
 
 ## Installation
 
@@ -181,14 +186,25 @@ toon-cli --strict --decode data.toon
 
 ## Performance
 
-TOON is designed for correctness first, but with performance in mind:
+Criterion benchmarks (decode) with optional perf features and direct deserializer produce large gains on typical datasets. To run:
 
-- **Zero-copy string parsing** where possible
-- **Streaming serialization** to minimize memory footprint
-- **Lazy tabular detection** only when beneficial
-- **Efficient delimiter-aware quoting**
+```bash
+# Save a baseline
+cargo bench --bench decode_bench -- --sample-size 200 --measurement-time 10 --warm-up-time 5 --save-baseline before
 
-Benchmarks coming soon with [Criterion](https://github.com/bheisler/criterion.rs).
+# Compare after enabling direct + perf features
+cargo bench --bench decode_bench \
+  --features "de_direct perf_memchr perf_smallvec" \
+  -- --sample-size 200 --measurement-time 10 --warm-up-time 5 --baseline before
+```
+
+Highlights (representative):
+- small documents: ~1.5–2.0x faster decode
+- 1k-row tabular arrays: ~2–3x faster decode
+
+Notes:
+- `perf_lexical` can further improve numeric-heavy workloads.
+- Results vary by CPU and dataset.
 
 ## Development
 
@@ -303,9 +319,9 @@ We welcome contributions! Here's how to get started:
 - [x] Strict mode validation
 - [x] CLI tool
 - [x] Spec conformance tests
-- [ ] Performance benchmarks
+- [x] Performance benchmarks
 - [ ] Property-based tests
-- [ ] No-std support
+- [x] No-std support (alloc-only)
 - [ ] WASM bindings
 - [ ] Language server protocol (LSP) for editors
 

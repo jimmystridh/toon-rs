@@ -2,7 +2,7 @@
 
 Goal: Complete, spec-conformant Rust implementation of TOON with serde integration and a CLI, modeled after serde’s repository structure.
 
-Status: Scaffolding complete (workspace, library, CLI, CI). Implementation pending.
+Status: Core library, CLI, serde integration implemented; decode optimized with zero-copy scanner and direct deserializer (feature-gated).
 
 ## Milestones and tasks
 
@@ -47,9 +47,9 @@ Status: Scaffolding complete (workspace, library, CLI, CI). Implementation pendi
   - [ ] Crate docs + READMEs + examples
   - [ ] Property tests (lightweight set in CI; heavier behind feature)
 
-- [ ] M8 Performance (post-conformance)
-  - [ ] Criterion benches for encode/decode
-  - [ ] Micro-optimizations after correctness
+- [x] M8 Performance (post-conformance)
+  - [x] Criterion benches for decode; baseline compare docs
+  - [x] Micro-optimizations (memchr/smallvec/lexical; direct de)
 
 - [ ] M9 Optional: no_std path (alloc/std features)
 

@@ -7,9 +7,21 @@ Rust library for TOON (Token-Oriented Object Notation). Provides:
 
 ## Features
 - `serde` (default): serde integration
+- `de_direct`: direct serde::Deserializer over the scanner (no intermediate JSON Value)
+- `perf_memchr`, `perf_smallvec`, `perf_lexical`: optional micro-optimizations
 - `chrono`: serialize `chrono::DateTime` as RFC3339 strings
 
 ## Quickstart
+
+Enable performance features for fastest decode (optional):
+
+```bash
+# Library
+cargo add toon --features "de_direct perf_memchr perf_smallvec"
+
+# Or enable per build
+RUSTFLAGS='' cargo test -p toon --features "de_direct perf_memchr perf_smallvec"
+```
 
 ```rust
 use serde_json::json;
