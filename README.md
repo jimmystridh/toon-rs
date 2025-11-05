@@ -321,6 +321,11 @@ We welcome contributions! Here's how to get started:
 - Property-based testing with proptest
 - Fuzzing harness for parser robustness
 - Language bindings (Python, JavaScript, etc.)
+- Strengthen CI by caching `cargo-hack` installs or sharing a toolchain stage so the feature-matrix job stays fast
+- Expand alloc/no-std smoke tests that don't rely on `serde_json` to catch regressions early
+- Add a “Feature matrix & testing” section that explains the default/perf/no-std bundles and which commands exercise them
+- Expose lower-level APIs (around `LineWriter`) for users who want tabular control without going through `serde_json::Value`
+- Add Criterion benchmarks for the streaming serializer path to quantify perf flags such as `perf_smallvec` and `de_direct`
 
 ## Roadmap
 
