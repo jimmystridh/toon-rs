@@ -22,7 +22,7 @@
 - **Tabular arrays**: Automatic CSV-like rendering for uniform object arrays
 - **Git-friendly**: Line-oriented format that plays well with version control diffs
 
-This repository provides a **complete Rust implementation** following the [official TOON v1.3 specification](https://github.com/toon-format/spec) with zero-copy parsing, streaming serialization via serde, and a full-featured CLI.
+This repository provides a **complete Rust implementation** following the [official TOON v1.4 specification](https://github.com/toon-format/spec) with zero-copy parsing, streaming serialization via serde, and a full-featured CLI.
 
 ## Why TOON?
 
@@ -52,6 +52,15 @@ TOON automatically detects when arrays contain uniform objects and renders them 
 - Spec conformant — Comprehensive test suite against official fixtures
 - Configurable delimiters — Use comma (default), tab, or pipe
 - No-std support — Works in embedded environments (with `alloc`)
+
+## Type Normalization
+
+Per the TOON v1.4 specification, this implementation normalizes host values to the JSON data model before encoding:
+
+- Non-finite floats (`NaN`, `Infinity`, `-Infinity`) are emitted as `null`.
+- Canonical numbers always use decimal form with no exponent, no trailing zeros, and `-0` normalized to `0`.
+- Round-trip guarantee: for any JSON-representable value `x`, `decode(encode(x)) == x`.
+- Out-of-range numeric literals rely on Rust’s `f64` semantics when decoding; overflow produces ±infinity, which the encoder will subsequently normalize to `null` unless the application handles them explicitly.
 
 Feature flags:
 - `de_direct` — enable direct Deserializer (bypasses intermediate JSON Value)
@@ -285,7 +294,7 @@ toon-rs/
 
 ## Specification
 
-This implementation follows the [official TOON v1.3 specification](https://github.com/toon-format/spec/blob/main/SPEC.md) with extensive conformance testing. Key features:
+This implementation follows the [official TOON v1.4 specification](https://github.com/toon-format/spec/blob/main/SPEC.md) with extensive conformance testing. Key features:
 
 - **Line-oriented**: Each logical token on its own line (or tabular row)
 - **Indentation-based**: Two-space indentation indicates nesting
@@ -294,7 +303,7 @@ This implementation follows the [official TOON v1.3 specification](https://githu
 - **Strict validation**: Optional mode catches malformed data
 
 For the complete format specification and conformance tests, see:
-- [TOON Specification v1.3](https://github.com/toon-format/spec/blob/main/SPEC.md)
+- [TOON Specification v1.4](https://github.com/toon-format/spec/blob/main/SPEC.md)
 - [Conformance Test Suite](https://github.com/toon-format/spec/tree/main/tests)
 - [Official TypeScript Implementation](https://github.com/toon-format/toon)
 
