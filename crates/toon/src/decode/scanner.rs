@@ -154,7 +154,8 @@ pub fn scan<'a>(input: &'a str) -> Vec<ParsedLine<'a>> {
         if let Some(idx) = find_unquoted_colon(body) {
             let (k, v) = body.split_at(idx);
             let after = &v[1..];
-            if after.trim().is_empty() {
+            let after_trimmed = trim_ascii(after);
+            if after_trimmed.is_empty() {
                 out.push(ParsedLine {
                     indent,
                     kind: LineKind::KeyOnly { key: k },
@@ -164,7 +165,7 @@ pub fn scan<'a>(input: &'a str) -> Vec<ParsedLine<'a>> {
                     indent,
                     kind: LineKind::KeyValue {
                         key: k,
-                        value: after.trim_start(),
+                        value: trim_ascii_start(after),
                     },
                 });
             }
@@ -176,4 +177,26 @@ pub fn scan<'a>(input: &'a str) -> Vec<ParsedLine<'a>> {
         });
     }
     out
+}
+
+fn trim_ascii(s: &str) -> &str {
+    let bytes = s.as_bytes();
+    let mut start = 0usize;
+    let mut end = bytes.len();
+    while start < end && matches!(bytes[start], b' ' | b'\t') {
+        start += 1;
+    }
+    while end > start && matches!(bytes[end - 1], b' ' | b'\t') {
+        end -= 1;
+    }
+    &s[start..end]
+}
+
+fn trim_ascii_start(s: &str) -> &str {
+    let bytes = s.as_bytes();
+    let mut start = 0usize;
+    while start < bytes.len() && matches!(bytes[start], b' ' | b'\t') {
+        start += 1;
+    }
+    &s[start..]
 }

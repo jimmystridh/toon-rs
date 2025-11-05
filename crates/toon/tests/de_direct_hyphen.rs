@@ -1,6 +1,5 @@
 #![cfg(all(feature = "serde", feature = "de_direct"))]
 use serde::Deserialize;
-use serde_json::Value as JsonValue;
 use toon::{Options, decode_from_str};
 
 #[derive(Debug, Deserialize, PartialEq)]
@@ -63,9 +62,9 @@ fn hyphen_tabular_header_then_sibling() {
 #[derive(Debug, Deserialize, PartialEq)]
 struct UnicodeRow {
     #[serde(rename = "")]
-    empty: Option<JsonValue>,
+    empty: Option<()>,
     #[serde(rename = "\u{0085}")]
-    nel: Option<JsonValue>,
+    nel: Option<()>,
 }
 
 #[derive(Debug, Deserialize, PartialEq)]
