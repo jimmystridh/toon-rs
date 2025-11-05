@@ -123,3 +123,46 @@ fn roundtrip_null_preserves_null() -> Result<(), Box<dyn std::error::Error>> {
     assert_eq!(original, decoded);
     Ok(())
 }
+
+// Bug #8: Empty string keys in tabular arrays
+#[test]
+fn roundtrip_tabular_array_with_empty_string_key() -> Result<(), Box<dyn std::error::Error>> {
+    let original = json!([{"": null}]);
+    let options = toon::Options::default();
+
+    let encoded = toon::encode_to_string(&original, &options)?;
+    println!("Encoded TOON:\n{}", encoded);
+
+    let decoded: serde_json::Value = toon::decode_from_str(&encoded, &options)?;
+    println!("Decoded JSON: {}", decoded);
+
+    // This should roundtrip correctly
+    assert_eq!(original, decoded, "Tabular array with empty string key should roundtrip correctly");
+    Ok(())
+}
+
+// Bug #8: Multiple rows with empty string key
+#[test]
+fn roundtrip_tabular_array_with_empty_string_key_multiple_rows() -> Result<(), Box<dyn std::error::Error>> {
+    let original = json!([{"": "a"}, {"": "b"}]);
+    let options = toon::Options::default();
+
+    let encoded = toon::encode_to_string(&original, &options)?;
+    let decoded: serde_json::Value = toon::decode_from_str(&encoded, &options)?;
+
+    assert_eq!(original, decoded);
+    Ok(())
+}
+
+// Bug #8: Mixed keys including empty string
+#[test]
+fn roundtrip_tabular_array_with_mixed_keys_including_empty() -> Result<(), Box<dyn std::error::Error>> {
+    let original = json!([{"": "x", "name": "test"}]);
+    let options = toon::Options::default();
+
+    let encoded = toon::encode_to_string(&original, &options)?;
+    let decoded: serde_json::Value = toon::decode_from_str(&encoded, &options)?;
+
+    assert_eq!(original, decoded);
+    Ok(())
+}

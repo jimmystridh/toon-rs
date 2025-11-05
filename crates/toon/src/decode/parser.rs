@@ -273,11 +273,138 @@ impl<'a> Parser<'a> {
         Value::Object(map)
     }
 
-    fn parse_scalar_line(&mut self, _indent: usize) -> Value {
-        let s_opt = match self.next() {
+    fn parse_scalar_line(&mut self, indent: usize) -> Value {
+        let s_opt = match self.peek() {
             Some(pl) => match &pl.kind { LineKind::Scalar(s) => Some(*s), _ => None },
             None => None,
         };
+
+        // Check if this is a tabular array header
+        if let Some(s) = s_opt {
+            if let Some((dch, header_str)) = parse_header(s) {
+                // This is a tabular header, parse it as a root-level tabular array
+                if self.strict && !(dch == ',' || dch == '\t' || dch == '|') {
+                    let line_no = self.idx + 1;
+                    self.error = Some(crate::error::Error::Syntax {
+                        line: line_no,
+                        message: format!("invalid header delimiter '{}': expected ',', '\\t', or '|'", dch)
+                    });
+                }
+                self.next(); // Consume the header line
+
+                let raw_header_tokens = split_delim_aware(header_str, dch);
+                let header_keys = raw_header_tokens.iter().map(|h| self.parse_key_token(h)).collect::<Vec<_>>();
+
+                if self.strict {
+                    if header_keys.is_empty() {
+                        let line_no = self.idx;
+                        self.error = Some(crate::error::Error::Syntax {
+                            line: line_no,
+                            message: "empty tabular header".to_string()
+                        });
+                    }
+                    for htok in raw_header_tokens.iter() {
+                        if !is_quoted_token(htok) && token_requires_quotes(htok, dch) {
+                            let line_no = self.idx;
+                            self.error = Some(crate::error::Error::Syntax {
+                                line: line_no,
+                                message: format!("unquoted header token requires quotes: {}", htok)
+                            });
+                            break;
+                        }
+                    }
+                    for i in 0..header_keys.len() {
+                        for j in (i+1)..header_keys.len() {
+                            if header_keys[i] == header_keys[j] {
+                                let line_no = self.idx;
+                                self.error = Some(crate::error::Error::Syntax {
+                                    line: line_no,
+                                    message: format!("duplicate header key: {}", header_keys[i])
+                                });
+                                break;
+                            }
+                        }
+                    }
+                }
+
+                let expected_cells = header_keys.len();
+                let mut rows: Vec<Value> = Vec::new();
+
+                loop {
+                    if self.strict {
+                        if let Some(bl) = self.peek() {
+                            if matches!(bl.kind, LineKind::Blank) {
+                                let line_no = self.idx + 1;
+                                self.error = Some(crate::error::Error::Syntax {
+                                    line: line_no,
+                                    message: "blank line inside table".to_string()
+                                });
+                            }
+                        }
+                    }
+                    self.skip_blanks();
+
+                    let row_item: Option<&str> = if let Some(rowl) = self.peek() {
+                        if rowl.indent != indent { break; }
+                        match &rowl.kind {
+                            LineKind::ListItem { value: Some(rs) } => Some(*rs),
+                            _ => None
+                        }
+                    } else { break };
+
+                    let Some(rs) = row_item else { break; };
+                    let row_line = self.idx + 1;
+                    self.next();
+
+                    let row_trimmed = rs.trim_end();
+                    if self.strict && row_trimmed.as_bytes().last().copied() == Some(dch as u8) {
+                        self.error = Some(crate::error::Error::Syntax {
+                            line: row_line,
+                            message: "trailing delimiter in row".to_string()
+                        });
+                    }
+
+                    let cells = split_delim_aware(rs, dch);
+                    if self.strict && self.error.is_none() && cells.len() != expected_cells {
+                        self.error = Some(crate::error::Error::Syntax {
+                            line: row_line,
+                            message: format!("row cell count {} does not match header {}", cells.len(), expected_cells)
+                        });
+                    }
+                    if self.strict && self.error.is_none() {
+                        for ctok in &cells {
+                            if !is_quoted_token(ctok) && cell_token_requires_quotes(ctok, dch) {
+                                self.error = Some(crate::error::Error::Syntax {
+                                    line: row_line,
+                                    message: format!("unquoted cell requires quotes: {}", ctok)
+                                });
+                                break;
+                            }
+                        }
+                    }
+
+                    let mut om: Vec<(String, Value)> = Vec::with_capacity(expected_cells);
+                    for (i, hk) in header_keys.iter().enumerate() {
+                        let cell = cells.get(i).copied().unwrap_or("null");
+                        om.push((hk.clone(), self.parse_scalar_token(cell)));
+                    }
+                    rows.push(Value::Object(om));
+                }
+
+                if self.strict && rows.is_empty() {
+                    let line_no = self.idx;
+                    self.error = Some(crate::error::Error::Syntax {
+                        line: line_no,
+                        message: "empty table (no rows)".to_string()
+                    });
+                }
+
+                return Value::Array(rows);
+            }
+        }
+
+        // Not a tabular header, parse as regular scalar
+        self.next();
         if let Some(s) = s_opt { return self.parse_scalar_token(s); }
         Value::Null
     }

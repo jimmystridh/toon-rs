@@ -393,16 +393,17 @@ echo '"-"' | cargo run -p toon-cli | cargo run -p toon-cli -- --decode
 
 ## Bug #8: Empty String Keys in Tabular Arrays
 
-**Status**: KNOWN ISSUE (Not yet fixed)
+**Status**: FIXED
 **Fuzzer**: `fuzz_structured`
 **Date**: 2025-11-05
+**Fixed**: 2025-11-05
 **Severity**: Low
 
 ### Description
 
 When a tabular array has an empty string as a key, the encoder produces output that the decoder cannot parse correctly.
 
-### Reproduction
+### Reproduction (Before Fix)
 
 ```bash
 # Input: [{"": null}]
@@ -415,13 +416,33 @@ When a tabular array has an empty string as a key, the encoder produces output t
 
 ### Root Cause
 
-The tabular header `@, ""` is being treated as a scalar string instead of being recognized as a tabular array header. The scanner or parser is not properly handling the case where the header token is an empty string.
+The tabular header `@, ""` was being treated as a scalar string instead of being recognized as a tabular array header. The parser did not have logic to recognize root-level tabular arrays - it only handled tabular arrays that were children of object keys.
 
-### Impact
+### Fix
 
-- Edge case with low likelihood in real-world usage
-- Only affects objects with empty string keys
+Modified the `parse_scalar_line` function in `crates/toon/src/decode/parser.rs` to detect when a scalar line is actually a tabular array header (starts with `@` followed by a delimiter character) and parse it accordingly.
 
-### Workaround
+The fix:
+1. Checks if a scalar line matches the tabular header pattern (`@` followed by delimiter and keys)
+2. If so, parses the header and following list items as a tabular array
+3. Otherwise, parses it as a regular scalar value
 
-Avoid using empty strings as object keys when they will be encoded in tabular format. Use regular nested object format instead by ensuring keys are not uniform or primitive.
+This enables root-level tabular arrays to be properly decoded, including those with empty string keys.
+
+**Files changed:**
+- `crates/toon/src/decode/parser.rs` (lines 276-410): Rewrote `parse_scalar_line` to handle tabular arrays
+
+**Tests added:**
+- `crates/toon/tests/roundtrip.rs`: Added 3 tests for tabular arrays with empty string keys
+
+### Verification
+
+```bash
+echo '[{"": null}]' | cargo run -p toon-cli
+# Output:
+# @, ""
+# - null
+
+echo '[{"": null}]' | cargo run -p toon-cli | cargo run -p toon-cli -- --decode
+# Output: [{"": null}] ✓
+```
