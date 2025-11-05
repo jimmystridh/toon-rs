@@ -40,11 +40,17 @@ impl LineWriter {
     pub fn line_key_only(&mut self, indent: usize, key: &str) {
         self.write_indent(indent);
         self.out.push_str(key);
-        self.out.push_str(":");
+        self.out.push(':');
         self.out.push('\n');
     }
 
     pub fn into_string(self) -> String {
         self.out
+    }
+}
+
+impl Default for LineWriter {
+    fn default() -> Self {
+        Self::new()
     }
 }

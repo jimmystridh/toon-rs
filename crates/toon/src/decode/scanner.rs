@@ -85,8 +85,7 @@ fn find_unquoted_colon(s: &str) -> Option<usize> {
     let b = s.as_bytes();
     let mut in_str = false;
     let mut escape = false;
-    for i in 0..b.len() {
-        let ch = b[i];
+    for (i, &ch) in b.iter().enumerate() {
         if in_str {
             if escape {
                 escape = false;

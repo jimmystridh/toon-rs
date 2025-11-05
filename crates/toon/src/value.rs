@@ -2,7 +2,6 @@
 
 #[cfg(not(feature = "std"))]
 use alloc::{
-    format,
     string::{String, ToString},
     vec::Vec,
 };
@@ -17,20 +16,17 @@ pub enum Number {
     F64(f64),
 }
 
-impl Number {
-    pub fn to_string(&self) -> String {
+impl core::fmt::Display for Number {
+    fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
         match self {
-            Number::I64(i) => i.to_string(),
-            Number::U64(u) => u.to_string(),
-            Number::F64(f) => {
-                let s = f.to_string();
-                // Ensure floats always have a decimal point to preserve type information
-                // If the string doesn't contain '.' or 'e'/'E', append ".0"
+            Number::I64(i) => write!(f, "{}", i),
+            Number::U64(u) => write!(f, "{}", u),
+            Number::F64(num) => {
+                let mut s = num.to_string();
                 if !s.contains('.') && !s.contains('e') && !s.contains('E') {
-                    format!("{}.0", s)
-                } else {
-                    s
+                    s.push_str(".0");
                 }
+                f.write_str(&s)
             }
         }
     }
