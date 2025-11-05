@@ -16,7 +16,7 @@ fn serialize_non_finite_floats_as_strings() {
         c: f64::NEG_INFINITY,
     };
     let out = toon::ser::to_string(&v, &toon::Options::default()).unwrap();
-    assert!(out.contains("a: \"NaN\""));
-    assert!(out.contains("b: \"Infinity\""));
-    assert!(out.contains("c: \"-Infinity\""));
+    assert!(out.contains("a: null"));
+    assert!(out.contains("b: null"));
+    assert!(out.contains("c: null"));
 }

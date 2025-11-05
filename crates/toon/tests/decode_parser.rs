@@ -15,3 +15,10 @@ fn parse_nested_in_list_item() {
     let v = parse_to_value(input);
     assert_eq!(v, json!({"list": [{"a":1,"b":2}, 3]}));
 }
+
+#[test]
+fn parse_leading_zero_numeric_token_as_string() {
+    let input = "value: 05\nother: -012\ncanon: 0.5\n";
+    let v = parse_to_value(input);
+    assert_eq!(v, json!({"value":"05","other":"-012","canon":0.5}));
+}

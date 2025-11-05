@@ -6,6 +6,7 @@ extern crate alloc;
 
 pub mod encode;
 pub mod error;
+pub(crate) mod number;
 pub mod options;
 pub mod value;
 

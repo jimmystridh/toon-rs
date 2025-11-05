@@ -4,6 +4,7 @@ use alloc::string::{String, ToString};
 #[cfg(feature = "std")]
 use std::string::String;
 
+use crate::number::format_canonical_f64;
 use crate::options::Delimiter;
 
 pub fn delimiter_char(delim: Delimiter) -> char {
@@ -113,20 +114,5 @@ pub fn format_null() -> &'static str {
 }
 
 pub fn format_f64(f: f64) -> String {
-    let s = f.to_string();
-    // Ensure floats always have a decimal point to preserve type information
-    // If the string doesn't contain '.' or 'e'/'E', append ".0"
-    if !s.contains('.') && !s.contains('e') && !s.contains('E') {
-        #[cfg(feature = "std")]
-        {
-            format!("{}.0", s)
-        }
-        #[cfg(not(feature = "std"))]
-        {
-            use alloc::format;
-            format!("{}.0", s)
-        }
-    } else {
-        s
-    }
+    format_canonical_f64(f)
 }
