@@ -41,6 +41,10 @@ pub fn needs_quotes(s: &str, delim: Delimiter) -> bool {
     if s.starts_with('-') && s.len() >= 2 && s.as_bytes()[1] == b' ' {
         return true;
     }
+    // Keys starting with @ could be confused with tabular array headers
+    if s.starts_with('@') {
+        return true;
+    }
     if s.starts_with(' ') || s.ends_with(' ') {
         return true;
     }
