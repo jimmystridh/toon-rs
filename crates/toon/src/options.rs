@@ -1,27 +1,13 @@
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
 pub enum Delimiter {
+    #[default]
     Comma,
     Tab,
     Pipe,
 }
 
-impl Default for Delimiter {
-    fn default() -> Self {
-        Delimiter::Comma
-    }
-}
-
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Default)]
 pub struct Options {
     pub delimiter: Delimiter,
     pub strict: bool,
-}
-
-impl Default for Options {
-    fn default() -> Self {
-        Self {
-            delimiter: Delimiter::Comma,
-            strict: false,
-        }
-    }
 }

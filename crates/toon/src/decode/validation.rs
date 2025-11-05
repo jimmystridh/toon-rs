@@ -30,16 +30,14 @@ pub fn validate_indentation<'a>(
                         message: format!("indent increase must be +2, got {}->{}", pi, pl.indent),
                     });
                 }
-            } else if pl.indent < pi {
-                if (pi - pl.indent) % 2 != 0 {
-                    return Err(ValidationError {
-                        line: idx + 1,
-                        message: format!(
-                            "indent decrease must be multiple of 2, got {}->{}",
-                            pi, pl.indent
-                        ),
-                    });
-                }
+            } else if pl.indent < pi && (pi - pl.indent) % 2 != 0 {
+                return Err(ValidationError {
+                    line: idx + 1,
+                    message: format!(
+                        "indent decrease must be multiple of 2, got {}->{}",
+                        pi, pl.indent
+                    ),
+                });
             }
         }
         prev_indent = Some(pl.indent);

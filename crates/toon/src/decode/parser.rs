@@ -17,7 +17,7 @@ pub struct Parser<'a> {
 }
 
 impl<'a> Parser<'a> {
-    pub fn from_str(input: &'a str) -> Self {
+    pub fn from_input(input: &'a str) -> Self {
         Self {
             lines: scan(input),
             idx: 0,
@@ -26,7 +26,7 @@ impl<'a> Parser<'a> {
         }
     }
 
-    pub fn from_str_with_strict(input: &'a str, strict: bool) -> Self {
+    pub fn from_input_with_strict(input: &'a str, strict: bool) -> Self {
         Self {
             lines: scan(input),
             idx: 0,
@@ -140,7 +140,7 @@ impl<'a> Parser<'a> {
                     break;
                 }
                 match &line.kind {
-                    LineKind::ListItem { value } => (true, value.clone()),
+                    LineKind::ListItem { value } => (true, *value),
                     _ => (false, None),
                 }
             } else {
@@ -220,7 +220,7 @@ impl<'a> Parser<'a> {
                                                 message: "empty tabular header".to_string(),
                                             });
                                         }
-                                        for (_i, htok) in raw_header_tokens.iter().enumerate() {
+                                        for &htok in raw_header_tokens.iter() {
                                             if !is_quoted_token(htok)
                                                 && token_requires_quotes(htok, dch)
                                             {
@@ -653,11 +653,11 @@ fn split_delim_aware<'a>(s: &'a str, dch: char) -> Vec<&'a str> {
     }
     #[cfg(feature = "perf_smallvec")]
     {
-        return out.into_vec();
+        out.into_vec()
     }
     #[cfg(not(feature = "perf_smallvec"))]
     {
-        return out;
+        out
     }
 }
 
@@ -717,11 +717,11 @@ fn split_delim_aware<'a>(s: &'a str, dch: char) -> Vec<&'a str> {
     }
     #[cfg(feature = "perf_smallvec")]
     {
-        return out.into_vec();
+        out.into_vec()
     }
     #[cfg(not(feature = "perf_smallvec"))]
     {
-        return out;
+        out
     }
 }
 
@@ -812,7 +812,7 @@ fn is_control_char(c: char) -> bool {
 }
 
 pub fn parse_to_internal_value(input: &str) -> Value {
-    let mut p = Parser::from_str(input);
+    let mut p = Parser::from_input(input);
     p.parse_document()
 }
 
@@ -830,7 +830,7 @@ pub fn parse_to_internal_value_from_lines<'a>(
 }
 
 pub fn parse_to_value_with_strict(input: &str, strict: bool) -> Result<Value, crate::error::Error> {
-    let mut p = Parser::from_str_with_strict(input, strict);
+    let mut p = Parser::from_input_with_strict(input, strict);
     let v = p.parse_document();
     if let Some(err) = p.error {
         Err(err)

@@ -97,78 +97,67 @@ impl<'a, 'de> Serializer for &'a mut StreamingSerializer<'de> {
     type SerializeStructVariant = MapSer<'a, 'de>;
 
     fn serialize_bool(self, v: bool) -> Result<Self::Ok, Self::Error> {
-        Ok(self.w.line(self.indent, primitives::format_bool(v)))
+        self.w.line(self.indent, primitives::format_bool(v));
+        Ok(())
     }
     fn serialize_i8(self, v: i8) -> Result<Self::Ok, Self::Error> {
-        Ok(self.w.line(self.indent, &v.to_string()))
+        self.serialize_i64(v as i64)
     }
     fn serialize_i16(self, v: i16) -> Result<Self::Ok, Self::Error> {
-        Ok(self.w.line(self.indent, &v.to_string()))
+        self.serialize_i64(v as i64)
     }
     fn serialize_i32(self, v: i32) -> Result<Self::Ok, Self::Error> {
-        Ok(self.w.line(self.indent, &v.to_string()))
+        self.serialize_i64(v as i64)
     }
     fn serialize_i64(self, v: i64) -> Result<Self::Ok, Self::Error> {
-        Ok(self.w.line(self.indent, &v.to_string()))
+        self.w.line(self.indent, &v.to_string());
+        Ok(())
     }
     fn serialize_u8(self, v: u8) -> Result<Self::Ok, Self::Error> {
-        Ok(self.w.line(self.indent, &v.to_string()))
+        self.serialize_u64(v as u64)
     }
     fn serialize_u16(self, v: u16) -> Result<Self::Ok, Self::Error> {
-        Ok(self.w.line(self.indent, &v.to_string()))
+        self.serialize_u64(v as u64)
     }
     fn serialize_u32(self, v: u32) -> Result<Self::Ok, Self::Error> {
-        Ok(self.w.line(self.indent, &v.to_string()))
+        self.serialize_u64(v as u64)
     }
     fn serialize_u64(self, v: u64) -> Result<Self::Ok, Self::Error> {
-        Ok(self.w.line(self.indent, &v.to_string()))
+        self.w.line(self.indent, &v.to_string());
+        Ok(())
     }
     fn serialize_f32(self, v: f32) -> Result<Self::Ok, Self::Error> {
-        let f = v as f64;
-        if f.is_finite() {
-            Ok(self.w.line(self.indent, &f.to_string()))
-        } else if f.is_nan() {
-            Ok(self
-                .w
-                .line(self.indent, &primitives::escape_and_quote("NaN")))
-        } else if f.is_sign_positive() {
-            Ok(self
-                .w
-                .line(self.indent, &primitives::escape_and_quote("Infinity")))
-        } else {
-            Ok(self
-                .w
-                .line(self.indent, &primitives::escape_and_quote("-Infinity")))
-        }
+        self.serialize_f64(v as f64)
     }
     fn serialize_f64(self, f: f64) -> Result<Self::Ok, Self::Error> {
         if f.is_finite() {
-            Ok(self.w.line(self.indent, &primitives::format_f64(f)))
+            self.w
+                .line(self.indent, &primitives::format_f64(f));
         } else if f.is_nan() {
-            Ok(self
-                .w
-                .line(self.indent, &primitives::escape_and_quote("NaN")))
+            self.w
+                .line(self.indent, &primitives::escape_and_quote("NaN"));
         } else if f.is_sign_positive() {
-            Ok(self
-                .w
-                .line(self.indent, &primitives::escape_and_quote("Infinity")))
+            self.w
+                .line(self.indent, &primitives::escape_and_quote("Infinity"));
         } else {
-            Ok(self
-                .w
-                .line(self.indent, &primitives::escape_and_quote("-Infinity")))
+            self.w
+                .line(self.indent, &primitives::escape_and_quote("-Infinity"));
         }
+        Ok(())
     }
     fn serialize_char(self, v: char) -> Result<Self::Ok, Self::Error> {
-        Ok(self.w.line(
+        self.w.line(
             self.indent,
             &primitives::format_string(&v.to_string(), self.opts.delimiter),
-        ))
+        );
+        Ok(())
     }
     fn serialize_str(self, v: &str) -> Result<Self::Ok, Self::Error> {
-        Ok(self.w.line(
+        self.w.line(
             self.indent,
             &primitives::format_string(v, self.opts.delimiter),
-        ))
+        );
+        Ok(())
     }
     fn serialize_bytes(self, v: &[u8]) -> Result<Self::Ok, Self::Error> {
         let mut seq = self.serialize_seq(Some(v.len()))?;
@@ -178,13 +167,15 @@ impl<'a, 'de> Serializer for &'a mut StreamingSerializer<'de> {
         SerializeSeq::end(seq)
     }
     fn serialize_none(self) -> Result<Self::Ok, Self::Error> {
-        Ok(self.w.line(self.indent, primitives::format_null()))
+        self.w.line(self.indent, primitives::format_null());
+        Ok(())
     }
     fn serialize_some<T: ?Sized + Serialize>(self, value: &T) -> Result<Self::Ok, Self::Error> {
         value.serialize(self)
     }
     fn serialize_unit(self) -> Result<Self::Ok, Self::Error> {
-        Ok(self.w.line(self.indent, primitives::format_null()))
+        self.w.line(self.indent, primitives::format_null());
+        Ok(())
     }
     fn serialize_unit_struct(self, _name: &'static str) -> Result<Self::Ok, Self::Error> {
         self.serialize_unit()
@@ -221,17 +212,17 @@ impl<'a, 'de> Serializer for &'a mut StreamingSerializer<'de> {
     fn serialize_seq(self, _len: Option<usize>) -> Result<Self::SerializeSeq, Self::Error> {
         #[cfg(feature = "json")]
         {
-            return Ok(SeqSer {
+            Ok(SeqSer {
                 parent: self,
                 items: Vec::new(),
-            });
+            })
         }
         #[cfg(not(feature = "json"))]
         {
-            return Ok(SeqSerAlloc {
+            Ok(SeqSerAlloc {
                 parent: self,
                 items: Vec::new(),
-            });
+            })
         }
     }
     fn serialize_tuple(self, len: usize) -> Result<Self::SerializeTuple, Self::Error> {
@@ -333,41 +324,46 @@ impl<'a, 'de> SerializeSeq for SeqSer<'a, 'de> {
                 let row = join_with_delim(&cells, dch);
                 self.parent.w.line_list_item(self.parent.indent, &row);
             }
-            return Ok(());
-        }
-        // Handle empty arrays at any level with [0]: syntax per TOON spec
-        if self.items.is_empty() {
+            Ok(())
+        } else if self.items.is_empty() {
+            // Handle empty arrays at any level with [0]: syntax per TOON spec
             self.parent.w.line(self.parent.indent, "[0]:");
-            return Ok(());
-        }
-        for item in &self.items {
-            match item {
-                Value::Null => self
-                    .parent
-                    .w
-                    .line_list_item(self.parent.indent, primitives::format_null()),
-                Value::Bool(b) => self
-                    .parent
-                    .w
-                    .line_list_item(self.parent.indent, primitives::format_bool(*b)),
-                Value::Number(n) => self
-                    .parent
-                    .w
-                    .line_list_item(self.parent.indent, &n.to_string()),
-                Value::String(s) => self.parent.w.line_list_item(
-                    self.parent.indent,
-                    &primitives::format_string(s, self.parent.opts.delimiter),
-                ),
-                Value::Array(_) | Value::Object(_) => {
-                    self.parent.w.line(self.parent.indent, "-");
-                    let child = self.parent.with_indent(self.parent.indent + 2);
-                    // Recurse by encoding Value
-                    crate::encode::encoders::encode_value(item, child.w, child.opts, child.indent)
+            Ok(())
+        } else {
+            for item in &self.items {
+                match item {
+                    Value::Null => self
+                        .parent
+                        .w
+                        .line_list_item(self.parent.indent, primitives::format_null()),
+                    Value::Bool(b) => self
+                        .parent
+                        .w
+                        .line_list_item(self.parent.indent, primitives::format_bool(*b)),
+                    Value::Number(n) => self
+                        .parent
+                        .w
+                        .line_list_item(self.parent.indent, &n.to_string()),
+                    Value::String(s) => self.parent.w.line_list_item(
+                        self.parent.indent,
+                        &primitives::format_string(s, self.parent.opts.delimiter),
+                    ),
+                    Value::Array(_) | Value::Object(_) => {
+                        self.parent.w.line(self.parent.indent, "-");
+                        let child = self.parent.with_indent(self.parent.indent + 2);
+                        // Recurse by encoding Value
+                        crate::encode::encoders::encode_value(
+                            item,
+                            child.w,
+                            child.opts,
+                            child.indent,
+                        )
                         .map_err(|e| SerError::custom(e.to_string()))?;
+                    }
                 }
             }
+            Ok(())
         }
-        Ok(())
     }
 }
 
@@ -460,35 +456,36 @@ impl<'a, 'de> SerializeSeq for SeqSerAlloc<'a, 'de> {
                 let row = join_with_delim(&cells, dch);
                 self.parent.w.line_list_item(self.parent.indent, &row);
             }
-            return Ok(());
-        }
-        // Fallback: emit list
-        for item in &self.items {
-            match item {
-                IValue::Null => self
-                    .parent
-                    .w
-                    .line_list_item(self.parent.indent, primitives::format_null()),
-                IValue::Bool(b) => self
-                    .parent
-                    .w
-                    .line_list_item(self.parent.indent, primitives::format_bool(*b)),
-                IValue::Number(n) => self
-                    .parent
-                    .w
-                    .line_list_item(self.parent.indent, &n.to_string()),
-                IValue::String(s) => self.parent.w.line_list_item(
-                    self.parent.indent,
-                    &primitives::format_string(s, self.parent.opts.delimiter),
-                ),
-                IValue::Array(_) | IValue::Object(_) => {
-                    self.parent.w.line(self.parent.indent, "-");
-                    let child = self.parent.with_indent(self.parent.indent + 2);
-                    encode_internal_value_alloc(item, child.w, child.opts, child.indent)?;
+            Ok(())
+        } else {
+            // Fallback: emit list
+            for item in &self.items {
+                match item {
+                    IValue::Null => self
+                        .parent
+                        .w
+                        .line_list_item(self.parent.indent, primitives::format_null()),
+                    IValue::Bool(b) => self
+                        .parent
+                        .w
+                        .line_list_item(self.parent.indent, primitives::format_bool(*b)),
+                    IValue::Number(n) => self
+                        .parent
+                        .w
+                        .line_list_item(self.parent.indent, &n.to_string()),
+                    IValue::String(s) => self.parent.w.line_list_item(
+                        self.parent.indent,
+                        &primitives::format_string(s, self.parent.opts.delimiter),
+                    ),
+                    IValue::Array(_) | IValue::Object(_) => {
+                        self.parent.w.line(self.parent.indent, "-");
+                        let child = self.parent.with_indent(self.parent.indent + 2);
+                        encode_internal_value_alloc(item, child.w, child.opts, child.indent)?;
+                    }
                 }
             }
+            Ok(())
         }
-        Ok(())
     }
 }
 
@@ -890,7 +887,7 @@ struct KeySerializer {
     out: Option<String>,
 }
 
-impl<'de> Serializer for &mut KeySerializer {
+impl Serializer for &mut KeySerializer {
     type Ok = ();
     type Error = SerError;
     type SerializeSeq = Impossible<(), SerError>;
