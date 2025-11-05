@@ -37,6 +37,10 @@ cargo clippy --workspace -- -D warnings
 cargo run -p toon-cli -- --help
 cargo run -p toon-cli -- data.json
 cargo run -p toon-cli -- --decode data.toon
+
+# Fuzz (nightly; run from `fuzz/`)
+cd fuzz
+./fuzz.sh run fuzz_structured -- -max_total_time=600
 ```
 
 ## Architecture

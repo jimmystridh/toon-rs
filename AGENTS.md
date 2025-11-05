@@ -25,7 +25,7 @@
 - Place integration tests in `crates/toon/tests` or CLI checks in `crates/toon-cli/tests`; reuse naming patterns such as `strict_tabular.rs`.
 - Update spec fixtures when parser or encoder behavior shifts and rerun the `TOON_CONFORMANCE` suite before committing.
 - Extend benches in `crates/toon/benches` for performance-sensitive changes and capture representative inputs.
-- Use the fuzz harness for parser regressions, keeping minimized cases under `fuzz/corpus` so they run in CI smoke tests.
+- Use the fuzz harness for parser regressions, keeping minimized cases under `fuzz/corpus` so they run in CI smoke tests. Run from `fuzz/` via `./fuzz.sh run fuzz_structured -- -max_total_time=600` (script selects the nightly toolchain).
 
 ## Commit & Pull Request Guidelines
 - Use conventional-style commits (`feat(encode): add strict table validation`) or match the focused subject lines already in history.

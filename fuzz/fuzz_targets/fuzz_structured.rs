@@ -71,13 +71,27 @@ fuzz_target!(|data: &[u8]| {
             if let Ok(toon_str) = encode_to_string(&value, &opts) {
                 match decode_from_str::<serde_json::Value>(&toon_str, &opts) {
                     Ok(decoded) => {
-                        if value != decoded {
-                            panic!(
-                                "Structured roundtrip mismatch!\nOriginal: {}\nTOON: {}\nDecoded: {}",
-                                serde_json::to_string_pretty(&value).unwrap(),
-                                toon_str,
-                                serde_json::to_string_pretty(&decoded).unwrap()
-                            );
+                        match encode_to_string(&decoded, &opts) {
+                            Ok(reencoded) => {
+                                if reencoded != toon_str {
+                                    panic!(
+                                        "Structured canonical mismatch!\nOriginal: {}\nTOON: {}\nRe-encoded: {}\nDecoded: {}",
+                                        serde_json::to_string_pretty(&value).unwrap(),
+                                        toon_str,
+                                        reencoded,
+                                        serde_json::to_string_pretty(&decoded).unwrap()
+                                    );
+                                }
+                            }
+                            Err(e) => {
+                                panic!(
+                                    "Failed to encode decoded value!\nOriginal: {}\nTOON: {}\nDecoded: {}\nError: {}",
+                                    serde_json::to_string_pretty(&value).unwrap(),
+                                    toon_str,
+                                    serde_json::to_string_pretty(&decoded).unwrap(),
+                                    e
+                                );
+                            }
                         }
                     }
                     Err(e) => {

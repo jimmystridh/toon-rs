@@ -46,8 +46,9 @@ Conformance tests
 
 Fuzzing
 - Install cargo-fuzz: cargo install cargo-fuzz
-- Run non-strict fuzzer: cargo fuzz run fuzz_decode_default -- -runs=0
-- Run strict fuzzer: cargo fuzz run fuzz_decode_strict -- -runs=0
+- Run structured fuzzing (uses nightly via helper script):
+  - cd fuzz && ./fuzz.sh run fuzz_structured -- -max_total_time=600
+- Legacy targets are still available (`cargo fuzz run fuzz_decode_default -- -runs=0`, etc.) but the structured harness enforces canonical formatting guarantees for spec v1.4.
 
 Architecture and structure (big picture)
 - Workspace
