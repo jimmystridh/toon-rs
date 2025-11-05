@@ -1,3 +1,17 @@
+#[cfg(not(feature = "std"))]
+use alloc::{
+    format,
+    string::{String, ToString},
+    vec::Vec,
+};
+
+#[cfg(feature = "std")]
+use std::{
+    format,
+    string::{String, ToString},
+    vec::Vec,
+};
+
 use serde::de::{self, DeserializeOwned, IntoDeserializer, MapAccess, SeqAccess};
 
 use crate::decode::scanner::{LineKind, ParsedLine, scan};
@@ -359,6 +373,7 @@ impl<'de, 'a, 'b> MapAccess<'de> for MapDe<'a, 'b> {
                 self.de.next();
                 let k = self.de.parse_key(kref);
                 let child_indent = self.indent + 2;
+                self.de.skip_blanks();
                 // Distinguish keyed header vs nested object
                 let vkind = if kref.contains('[') {
                     // Try keyed tabular header "key[N]{fields}:"
@@ -375,33 +390,31 @@ impl<'de, 'a, 'b> MapAccess<'de> for MapDe<'a, 'b> {
                         ValueKind::Array { child_indent }
                     }
                 } else {
-                    // Not header: regular nested object
-                    // Also support legacy next-line scalar header starting with '@'
-                    if let Some(nl) = self.de.peek() {
-                        if nl.indent == child_indent {
-                            if let LineKind::Scalar(s) = &nl.kind {
-                                if let Some((dch, hdr)) = parse_header(s) {
-                                    self.de.next();
-                                    let fields = split_delim_aware(hdr, dch)
-                                        .into_iter()
-                                        .map(|f| self.de.parse_key(f))
-                                        .collect::<Vec<_>>();
-                                    ValueKind::Tabular {
-                                        dch,
-                                        header: fields,
-                                        child_indent,
+                    // Not header: decide between array, tabular header, or nested object
+                    match self.de.peek() {
+                        Some(next_line) if next_line.indent == child_indent => {
+                            match &next_line.kind {
+                                LineKind::ListItem { .. } => ValueKind::Array { child_indent },
+                                LineKind::Scalar(s) => {
+                                    if let Some((dch, hdr)) = parse_header(s) {
+                                        self.de.next();
+                                        let fields = split_delim_aware(hdr, dch)
+                                            .into_iter()
+                                            .map(|f| self.de.parse_key(f))
+                                            .collect::<Vec<_>>();
+                                        ValueKind::Tabular {
+                                            dch,
+                                            header: fields,
+                                            child_indent,
+                                        }
+                                    } else {
+                                        ValueKind::NestedObject { child_indent }
                                     }
-                                } else {
-                                    ValueKind::NestedObject { child_indent }
                                 }
-                            } else {
-                                ValueKind::NestedObject { child_indent }
+                                _ => ValueKind::NestedObject { child_indent },
                             }
-                        } else {
-                            ValueKind::NestedObject { child_indent }
                         }
-                    } else {
-                        ValueKind::NestedObject { child_indent }
+                        _ => ValueKind::NestedObject { child_indent },
                     }
                 };
                 self.pending = Some((k.clone(), vkind));

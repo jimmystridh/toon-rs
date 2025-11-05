@@ -46,12 +46,12 @@ pub fn encode_to_writer<W: Write, T: Serialize>(
 
 // Decoding helpers require the json (serde_json) feature
 #[cfg(feature = "serde")]
-pub fn decode_from_str<T: DeserializeOwned>(s: &str, options: &Options) -> Result<T> {
+pub fn decode_from_str<T: DeserializeOwned + 'static>(s: &str, options: &Options) -> Result<T> {
     crate::de::from_str(s, options)
 }
 
 #[cfg(all(feature = "serde", feature = "std"))]
-pub fn decode_from_reader<R: Read, T: DeserializeOwned>(
+pub fn decode_from_reader<R: Read, T: DeserializeOwned + 'static>(
     mut reader: R,
     options: &Options,
 ) -> Result<T> {
