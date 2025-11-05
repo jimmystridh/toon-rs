@@ -446,3 +446,61 @@ echo '[{"": null}]' | cargo run -p toon-cli
 echo '[{"": null}]' | cargo run -p toon-cli | cargo run -p toon-cli -- --decode
 # Output: [{"": null}] ✓
 ```
+
+## Bug #9: Keys Starting with @ Not Quoted
+
+**Status**: FIXED
+**Fuzzer**: `fuzz_structured`
+**Date**: 2025-11-05
+**Fixed**: 2025-11-05
+**Severity**: Medium
+
+### Description
+
+Object keys starting with `@` were not being quoted during encoding. Since `@` followed by a delimiter is the tabular array header marker in TOON, unquoted `@` keys at the root level could be misinterpreted as table headers, causing the key-value pair to be lost during decoding.
+
+### Reproduction (Before Fix)
+
+```bash
+# Input: {"": null, "@": null}
+# TOON output:
+"": null
+@: null
+
+# Decoded result: {"": null}  ❌ Should be: {"": null, "@": null}
+# The "@" key was lost because "@: null" was interpreted as an invalid tabular header
+```
+
+### Root Cause
+
+The `needs_quotes` function in `encode/primitives.rs` did not check for keys starting with `@`. When such keys appeared at the root level, they could be confused with tabular array headers, which start with `@` followed by a delimiter character.
+
+### Fix
+
+Added explicit check for keys starting with `@` in the `needs_quotes` function:
+
+```rust
+// Keys starting with @ could be confused with tabular array headers
+if s.starts_with('@') {
+    return true;
+}
+```
+
+**Files changed:**
+- `crates/toon/src/encode/primitives.rs` (lines 44-47)
+
+### Verification
+
+```bash
+echo '{"": null, "@": null}' | cargo run -p toon-cli
+# Output:
+# "": null
+# "@": null
+
+echo '{"": null, "@": null}' | cargo run -p toon-cli | cargo run -p toon-cli -- --decode
+# Output: {"":null,"@":null} ✓
+```
+
+### Related
+
+This bug was discovered immediately after fixing Bug #8 (Empty String Keys in Tabular Arrays). The fix for Bug #8 enabled root-level tabular array parsing, which then exposed this issue with unquoted `@` keys.
