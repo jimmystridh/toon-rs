@@ -73,9 +73,11 @@ jobs:
       - uses: Swatinem/rust-cache@v2
       - name: Install cargo-hack
         run: cargo install --locked cargo-hack
+      - name: Add cargo bin to PATH
+        run: echo "$HOME/.cargo/bin" >> $GITHUB_PATH
       - name: Run cargo-hack feature matrix
         run: >-
-          $HOME/.cargo/bin/cargo-hack test -p toon
+          cargo hack test -p toon
           --features "alloc,serde"
           --feature-powerset
           --include-features "std,json,chrono,perf_memchr,perf_smallvec,perf_lexical,de_direct"
