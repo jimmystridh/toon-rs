@@ -61,9 +61,10 @@ pub fn encode_value(
                             Value::Null => w.line_list_item(indent, primitives::format_null()),
                             Value::Bool(b) => w.line_list_item(indent, primitives::format_bool(*b)),
                             Value::Number(n) => w.line_list_item(indent, &n.to_string()),
-                            Value::String(s) => {
-                                w.line_list_item(indent, &primitives::format_string(s, opts.delimiter))
-                            }
+                            Value::String(s) => w.line_list_item(
+                                indent,
+                                &primitives::format_string(s, opts.delimiter),
+                            ),
                             Value::Array(_) | Value::Object(_) => {
                                 // Start list item then nested block
                                 w.line(indent, "-");
