@@ -1,0 +1,66 @@
+[package]
+name = "toon-fuzz"
+version = "0.0.0"
+publish = false
+edition = "2021"
+
+[package.metadata]
+cargo-fuzz = true
+
+[dependencies]
+libfuzzer-sys = { version = "0.4", features = ["arbitrary-derive"] }
+serde_json = "1.0"
+arbitrary = "1"
+
+[dependencies.toon]
+path = "../crates/toon"
+# Use default features (std, serde, json)
+
+[[bin]]
+name = "fuzz_decode_default"
+path = "fuzz_targets/fuzz_decode_default.rs"
+test = false
+doc = false
+bench = false
+
+[[bin]]
+name = "fuzz_decode_strict"
+path = "fuzz_targets/fuzz_decode_strict.rs"
+test = false
+doc = false
+bench = false
+
+[[bin]]
+name = "fuzz_roundtrip_json"
+path = "fuzz_targets/fuzz_roundtrip_json.rs"
+test = false
+doc = false
+bench = false
+
+[[bin]]
+name = "fuzz_roundtrip_toon"
+path = "fuzz_targets/fuzz_roundtrip_toon.rs"
+test = false
+doc = false
+bench = false
+
+[[bin]]
+name = "fuzz_encode"
+path = "fuzz_targets/fuzz_encode.rs"
+test = false
+doc = false
+bench = false
+
+[[bin]]
+name = "fuzz_differential"
+path = "fuzz_targets/fuzz_differential.rs"
+test = false
+doc = false
+bench = false
+
+[[bin]]
+name = "fuzz_structured"
+path = "fuzz_targets/fuzz_structured.rs"
+test = false
+doc = false
+bench = false

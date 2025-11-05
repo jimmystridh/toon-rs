@@ -206,6 +206,18 @@ Notes:
 - `perf_lexical` can further improve numeric-heavy workloads.
 - Results vary by CPU and dataset.
 
+## Fuzzing
+
+We use cargo-fuzz (libFuzzer) to stress the decoder.
+
+```bash
+cargo install cargo-fuzz
+
+# From repo root
+cargo fuzz run fuzz_decode_default -- -runs=0
+cargo fuzz run fuzz_decode_strict -- -runs=0
+```
+
 ## Development
 
 ```bash

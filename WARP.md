@@ -44,6 +44,11 @@ Conformance tests
 - Behavior:
   - Decode runs with strict validation (indentation/tabular rules). Encode comparison normalizes newlines. Tests are skipped if TOON_CONFORMANCE is unset or fixtures are absent.
 
+Fuzzing
+- Install cargo-fuzz: cargo install cargo-fuzz
+- Run non-strict fuzzer: cargo fuzz run fuzz_decode_default -- -runs=0
+- Run strict fuzzer: cargo fuzz run fuzz_decode_strict -- -runs=0
+
 Architecture and structure (big picture)
 - Workspace
   - crates/toon: core library (encode/decode pipelines, Options, Error, serde integration, streaming serializer)
