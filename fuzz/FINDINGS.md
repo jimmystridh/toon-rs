@@ -343,7 +343,55 @@ echo '[{}, null]' | cargo run -p toon-cli | cargo run -p toon-cli -- --decode
 # Output: [{}, null] ✓
 ```
 
-## Bug #7: Empty String Keys in Tabular Arrays
+## Bug #7: Lone Hyphen String
+
+**Status**: FIXED
+**Fuzzer**: `fuzz_structured`
+**Date**: 2025-11-05
+**Fixed**: 2025-11-05
+**Severity**: Medium
+
+### Description
+
+A string containing only a hyphen `"-"` was being encoded without quotes as `-`, which is the TOON list item marker. This caused the decoder to interpret it as an array with one null element instead of a string.
+
+### Reproduction
+
+```bash
+# Input: "-"
+# TOON output: -
+# Decoded result: [null]  ❌ Should be: "-"
+```
+
+### Root Cause
+
+The `needs_quotes` function checked for strings starting with `"- "` (hyphen followed by space) but didn't handle the exact string `"-"` which is a reserved token in TOON syntax.
+
+### Fix
+
+Added explicit check for lone hyphen in `needs_quotes`:
+
+```rust
+// A lone hyphen is a list item marker and must be quoted
+if s == "-" {
+    return true;
+}
+```
+
+**Files changed:**
+- `crates/toon/src/encode/primitives.rs` (lines 37-40)
+
+### Verification
+
+```bash
+echo '"-"' | cargo run -p toon-cli
+# Output: "-"
+
+echo '"-"' | cargo run -p toon-cli | cargo run -p toon-cli -- --decode
+# Output: "-" ✓
+```
+
+## Bug #8: Empty String Keys in Tabular Arrays
 
 **Status**: KNOWN ISSUE (Not yet fixed)
 **Fuzzer**: `fuzz_structured`

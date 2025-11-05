@@ -34,6 +34,10 @@ pub fn needs_quotes(s: &str, delim: Delimiter) -> bool {
     if s.is_empty() {
         return true;
     }
+    // A lone hyphen is a list item marker and must be quoted
+    if s == "-" {
+        return true;
+    }
     if s.starts_with('-') && s.len() >= 2 && s.as_bytes()[1] == b' ' {
         return true;
     }
