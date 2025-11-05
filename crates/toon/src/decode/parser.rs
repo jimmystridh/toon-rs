@@ -581,7 +581,7 @@ fn parse_header(s: &str) -> Option<(char, &str)> {
     }
     let dch = it.next()?;
     let rest = &s[2..];
-    Some((dch, rest.trim_start()))
+    Some((dch, trim_ascii_start(rest)))
 }
 
 #[cfg(feature = "perf_memchr")]
@@ -736,6 +736,15 @@ fn trim_ascii(s: &str) -> &str {
         end -= 1;
     }
     &s[start..end]
+}
+
+fn trim_ascii_start(s: &str) -> &str {
+    let bytes = s.as_bytes();
+    let mut start = 0usize;
+    while start < bytes.len() && matches!(bytes[start], b' ' | b'\t') {
+        start += 1;
+    }
+    &s[start..]
 }
 
 fn is_quoted_token(s: &str) -> bool {
