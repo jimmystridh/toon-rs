@@ -85,14 +85,25 @@ jobs:
   conformance:
     name: Conformance (if fixtures present)
     runs-on: ubuntu-latest
-    if: ${{ hashFiles('spec/tests/fixtures/**') != '' }}
     steps:
       - uses: actions/checkout@v4
         with:
           submodules: recursive
+      - name: Check fixtures
+        id: fixtures
+        shell: bash
+        run: |
+          if compgen -G "spec/tests/fixtures/**/*" > /dev/null; then
+            echo "present=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "present=false" >> "$GITHUB_OUTPUT"
+          fi
       - uses: dtolnay/rust-toolchain@stable
+        if: ${{ steps.fixtures.outputs.present == 'true' }}
       - uses: Swatinem/rust-cache@v2
+        if: ${{ steps.fixtures.outputs.present == 'true' }}
       - name: Run conformance tests
+        if: ${{ steps.fixtures.outputs.present == 'true' }}
         env:
           TOON_CONFORMANCE: '1'
         run: cargo test -p toon --tests
