@@ -6,7 +6,7 @@
 
 [![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg?style=flat-square)](LICENSE)
 
-[Website](https://toonformat.dev) • [Examples](#examples) • [Contributing](#contributing)
+[Official format Website](https://toonformat.dev) • [Examples](#examples) • [Contributing](#contributing)
 
 </div>
 
