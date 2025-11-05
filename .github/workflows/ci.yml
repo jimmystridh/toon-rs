@@ -64,6 +64,24 @@ jobs:
       - uses: Swatinem/rust-cache@v2
       - run: cargo check -p toon --no-default-features --features "alloc,serde,json"
 
+  test-feature-matrix:
+    name: Test (feature matrix)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@stable
+      - uses: Swatinem/rust-cache@v2
+      - name: Install cargo-hack
+        run: cargo install --locked cargo-hack
+      - name: Run cargo-hack feature matrix
+        run: >-
+          $HOME/.cargo/bin/cargo-hack test -p toon
+          --features "alloc,serde"
+          --feature-powerset
+          --include-features "std,json,chrono,perf_memchr,perf_smallvec,perf_lexical,de_direct"
+          --group-features "chrono,json"
+          --group-features "de_direct,std"
+
   conformance:
     name: Conformance (if fixtures present)
     runs-on: ubuntu-latest
