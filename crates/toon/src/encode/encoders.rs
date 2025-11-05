@@ -111,13 +111,19 @@ pub fn is_tabular_array(arr: &[Value]) -> Option<Vec<String>> {
             Value::Object(m) => m,
             _ => return None,
         };
-        let mut kset: Vec<String> = obj.keys().cloned().collect();
-        kset.sort();
+        let kset: Vec<String> = obj.keys().cloned().collect();
+
         if let Some(ref ks) = keys {
-            if *ks != kset {
+            // Check if keys match (order-insensitive comparison)
+            let mut kset_sorted = kset.clone();
+            kset_sorted.sort();
+            let mut ks_sorted = ks.clone();
+            ks_sorted.sort();
+            if ks_sorted != kset_sorted {
                 return None;
             }
         } else {
+            // Use the key order from the first object
             keys = Some(kset);
         }
         // All values must be primitives
