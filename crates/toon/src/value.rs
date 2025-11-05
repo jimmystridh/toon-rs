@@ -21,7 +21,16 @@ impl Number {
         match self {
             Number::I64(i) => i.to_string(),
             Number::U64(u) => u.to_string(),
-            Number::F64(f) => f.to_string(),
+            Number::F64(f) => {
+                let s = f.to_string();
+                // Ensure floats always have a decimal point to preserve type information
+                // If the string doesn't contain '.' or 'e'/'E', append ".0"
+                if !s.contains('.') && !s.contains('e') && !s.contains('E') {
+                    format!("{}.0", s)
+                } else {
+                    s
+                }
+            }
         }
     }
 }

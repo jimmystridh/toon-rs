@@ -52,36 +52,46 @@ pub fn encode_value(
                 }
             } else {
                 // Fallback to list form
-                for item in items {
-                    match item {
-                        Value::Null => w.line_list_item(indent, primitives::format_null()),
-                        Value::Bool(b) => w.line_list_item(indent, primitives::format_bool(*b)),
-                        Value::Number(n) => w.line_list_item(indent, &n.to_string()),
-                        Value::String(s) => {
-                            w.line_list_item(indent, &primitives::format_string(s, opts.delimiter))
-                        }
-                        Value::Array(_) | Value::Object(_) => {
-                            // Start list item then nested block
-                            w.line(indent, "-");
-                            encode_value(item, w, opts, indent + 2)?;
+                if items.is_empty() {
+                    // Empty array at any level: use [0]: syntax per spec
+                    w.line(indent, "[0]:");
+                } else {
+                    for item in items {
+                        match item {
+                            Value::Null => w.line_list_item(indent, primitives::format_null()),
+                            Value::Bool(b) => w.line_list_item(indent, primitives::format_bool(*b)),
+                            Value::Number(n) => w.line_list_item(indent, &n.to_string()),
+                            Value::String(s) => {
+                                w.line_list_item(indent, &primitives::format_string(s, opts.delimiter))
+                            }
+                            Value::Array(_) | Value::Object(_) => {
+                                // Start list item then nested block
+                                w.line(indent, "-");
+                                encode_value(item, w, opts, indent + 2)?;
+                            }
                         }
                     }
                 }
             }
         }
         Value::Object(obj) => {
-            for (k, v) in obj {
-                let key = primitives::format_string(k, opts.delimiter);
-                match v {
-                    Value::Null => w.line_kv(indent, &key, primitives::format_null()),
-                    Value::Bool(b) => w.line_kv(indent, &key, primitives::format_bool(*b)),
-                    Value::Number(n) => w.line_kv(indent, &key, &n.to_string()),
-                    Value::String(s) => {
-                        w.line_kv(indent, &key, &primitives::format_string(s, opts.delimiter))
-                    }
-                    Value::Array(_) | Value::Object(_) => {
-                        w.line_key_only(indent, &key);
-                        encode_value(v, w, opts, indent + 2)?;
+            if obj.is_empty() {
+                // Empty object at any level: use {0}: syntax (symmetrical with [0]:)
+                w.line(indent, "{0}:");
+            } else {
+                for (k, v) in obj {
+                    let key = primitives::format_string(k, opts.delimiter);
+                    match v {
+                        Value::Null => w.line_kv(indent, &key, primitives::format_null()),
+                        Value::Bool(b) => w.line_kv(indent, &key, primitives::format_bool(*b)),
+                        Value::Number(n) => w.line_kv(indent, &key, &n.to_string()),
+                        Value::String(s) => {
+                            w.line_kv(indent, &key, &primitives::format_string(s, opts.delimiter))
+                        }
+                        Value::Array(_) | Value::Object(_) => {
+                            w.line_key_only(indent, &key);
+                            encode_value(v, w, opts, indent + 2)?;
+                        }
                     }
                 }
             }

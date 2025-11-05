@@ -143,7 +143,7 @@ impl<'a, 'de> Serializer for &'a mut StreamingSerializer<'de> {
     }
     fn serialize_f64(self, f: f64) -> Result<Self::Ok, Self::Error> {
         if f.is_finite() {
-            Ok(self.w.line(self.indent, &f.to_string()))
+            Ok(self.w.line(self.indent, &primitives::format_f64(f)))
         } else if f.is_nan() {
             Ok(self
                 .w
@@ -257,6 +257,7 @@ impl<'a, 'de> Serializer for &'a mut StreamingSerializer<'de> {
         Ok(MapSer {
             parent: self,
             next_key: None,
+            entry_count: 0,
         })
     }
     fn serialize_struct(
@@ -280,6 +281,7 @@ impl<'a, 'de> Serializer for &'a mut StreamingSerializer<'de> {
         Ok(MapSer {
             parent: self,
             next_key: None,
+            entry_count: 0,
         })
     }
 }
@@ -331,6 +333,11 @@ impl<'a, 'de> SerializeSeq for SeqSer<'a, 'de> {
                 let row = join_with_delim(&cells, dch);
                 self.parent.w.line_list_item(self.parent.indent, &row);
             }
+            return Ok(());
+        }
+        // Handle empty arrays at any level with [0]: syntax per TOON spec
+        if self.items.is_empty() {
+            self.parent.w.line(self.parent.indent, "[0]:");
             return Ok(());
         }
         for item in &self.items {
@@ -524,6 +531,7 @@ impl<'a, 'de> SerializeTupleVariant for SeqSerAlloc<'a, 'de> {
 struct MapSer<'a, 'de> {
     parent: &'a mut StreamingSerializer<'de>,
     next_key: Option<String>,
+    entry_count: usize,
 }
 
 impl<'a, 'de> SerializeMap for MapSer<'a, 'de> {
@@ -546,10 +554,15 @@ impl<'a, 'de> SerializeMap for MapSer<'a, 'de> {
             let mut child = self.with_indent(self.parent.indent + 2);
             value.serialize(&mut child)?;
         }
+        self.entry_count += 1;
         Ok(())
     }
 
     fn end(self) -> Result<Self::Ok, Self::Error> {
+        // Handle empty objects with {0}: syntax (symmetrical with [0]:)
+        if self.entry_count == 0 {
+            self.parent.w.line(self.parent.indent, "{0}:");
+        }
         Ok(())
     }
 }
@@ -762,7 +775,7 @@ impl<'a, 'de> Serializer for &'a mut ScalarSerializer<'de> {
     }
     fn serialize_f64(self, v: f64) -> Result<Self::Ok, Self::Error> {
         if v.is_finite() {
-            self.out = Some(v.to_string());
+            self.out = Some(primitives::format_f64(v));
         } else if v.is_nan() {
             self.out = Some(primitives::escape_and_quote("NaN"));
         } else if v.is_sign_positive() {
@@ -925,11 +938,11 @@ impl<'de> Serializer for &mut KeySerializer {
         Ok(())
     }
     fn serialize_f32(self, v: f32) -> Result<Self::Ok, Self::Error> {
-        self.out = Some((v as f64).to_string());
+        self.out = Some(primitives::format_f64(v as f64));
         Ok(())
     }
     fn serialize_f64(self, v: f64) -> Result<Self::Ok, Self::Error> {
-        self.out = Some(v.to_string());
+        self.out = Some(primitives::format_f64(v));
         Ok(())
     }
     fn serialize_char(self, v: char) -> Result<Self::Ok, Self::Error> {

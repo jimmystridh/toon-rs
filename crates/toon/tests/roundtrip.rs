@@ -21,3 +21,105 @@ fn decode_basic_toon() -> Result<(), Box<dyn std::error::Error>> {
     assert_eq!(v, json!({"a":1, "b": [true, "x"]}));
     Ok(())
 }
+
+#[test]
+fn encode_empty_array() -> Result<(), Box<dyn std::error::Error>> {
+    let value = json!([]);
+    let options = toon::Options::default();
+    let s = toon::encode_to_string(&value, &options)?;
+    assert_eq!(s.trim(), "[0]:");
+    Ok(())
+}
+
+#[test]
+fn decode_empty_array() -> Result<(), Box<dyn std::error::Error>> {
+    let options = toon::Options::default();
+    let s = "[0]:";
+    let v: serde_json::Value = toon::decode_from_str(s, &options)?;
+    assert_eq!(v, json!([]));
+    Ok(())
+}
+
+#[test]
+fn roundtrip_empty_array() -> Result<(), Box<dyn std::error::Error>> {
+    let original = json!([]);
+    let options = toon::Options::default();
+
+    let encoded = toon::encode_to_string(&original, &options)?;
+    let decoded: serde_json::Value = toon::decode_from_str(&encoded, &options)?;
+
+    assert_eq!(original, decoded);
+    Ok(())
+}
+
+#[test]
+fn encode_float_with_zero_decimal() -> Result<(), Box<dyn std::error::Error>> {
+    let value = json!({"x": 0.0, "y": 1.0, "z": 2.0});
+    let options = toon::Options::default();
+    let s = toon::encode_to_string(&value, &options)?;
+
+    // Floats should always have decimal point to preserve type
+    assert!(s.contains("0.0"));
+    assert!(s.contains("1.0"));
+    assert!(s.contains("2.0"));
+    Ok(())
+}
+
+#[test]
+fn roundtrip_floats_preserves_decimals() -> Result<(), Box<dyn std::error::Error>> {
+    let original = json!({"a": 0.0, "b": 1.0, "c": 1.5});
+    let options = toon::Options::default();
+
+    let encoded = toon::encode_to_string(&original, &options)?;
+    let decoded: serde_json::Value = toon::decode_from_str(&encoded, &options)?;
+
+    assert_eq!(original, decoded);
+    Ok(())
+}
+
+#[test]
+fn roundtrip_root_float() -> Result<(), Box<dyn std::error::Error>> {
+    let original = json!(0.0);
+    let options = toon::Options::default();
+
+    let encoded = toon::encode_to_string(&original, &options)?;
+    assert_eq!(encoded.trim(), "0.0");
+
+    let decoded: serde_json::Value = toon::decode_from_str(&encoded, &options)?;
+    assert_eq!(original, decoded);
+    Ok(())
+}
+
+#[test]
+fn decode_empty_string_as_empty_object() -> Result<(), Box<dyn std::error::Error>> {
+    let options = toon::Options::default();
+    let s = "";
+    let v: serde_json::Value = toon::decode_from_str(s, &options)?;
+    assert_eq!(v, json!({}));
+    Ok(())
+}
+
+#[test]
+fn roundtrip_empty_object() -> Result<(), Box<dyn std::error::Error>> {
+    let original = json!({});
+    let options = toon::Options::default();
+
+    let encoded = toon::encode_to_string(&original, &options)?;
+    let decoded: serde_json::Value = toon::decode_from_str(&encoded, &options)?;
+
+    assert_eq!(original, decoded);
+    Ok(())
+}
+
+#[test]
+fn roundtrip_null_preserves_null() -> Result<(), Box<dyn std::error::Error>> {
+    let original = json!(null);
+    let options = toon::Options::default();
+
+    let encoded = toon::encode_to_string(&original, &options)?;
+    assert_eq!(encoded.trim(), "null");
+
+    let decoded: serde_json::Value = toon::decode_from_str(&encoded, &options)?;
+    assert_eq!(original, decoded);
+    Ok(())
+}

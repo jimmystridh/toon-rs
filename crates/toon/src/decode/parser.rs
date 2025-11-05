@@ -287,6 +287,19 @@ impl<'a> Parser<'a> {
         let Some(line) = self.peek() else {
             return Value::Null;
         };
+        // Check for empty collection syntax: [0]: for arrays, {0}: for objects
+        if line.indent == indent {
+            if let LineKind::KeyOnly { key } = &line.kind {
+                if *key == "[0]" {
+                    self.next();
+                    return Value::Array(Vec::new());
+                }
+                if *key == "{0}" {
+                    self.next();
+                    return Value::Object(Vec::new());
+                }
+            }
+        }
         match &line.kind {
             LineKind::ListItem { .. } if line.indent == indent => self.parse_array(indent),
             LineKind::KeyValue { .. } | LineKind::KeyOnly { .. } if line.indent == indent => {
@@ -303,7 +316,23 @@ impl<'a> Parser<'a> {
     pub fn parse_document(&mut self) -> Value {
         self.skip_blanks();
         if self.peek().is_none() {
-            return Value::Null;
+            // Empty document represents an empty object (root documents are implicitly objects)
+            return Value::Object(Vec::new());
+        }
+        // Check for root-level empty collection syntax: [0]: for arrays, {0}: for objects
+        if let Some(line) = self.peek() {
+            if line.indent == 0 {
+                if let LineKind::KeyOnly { key } = &line.kind {
+                    if *key == "[0]" {
+                        self.next();
+                        return Value::Array(Vec::new());
+                    }
+                    if *key == "{0}" {
+                        self.next();
+                        return Value::Object(Vec::new());
+                    }
+                }
+            }
         }
         let indent = self.peek().unwrap().indent;
         self.parse_node(indent)
@@ -468,6 +497,10 @@ fn cell_token_requires_quotes(s: &str, dch: char) -> bool {
     if t.starts_with('-') && t.parse::<f64>().is_err() {
         return true;
     }
+    // If it starts with '+', it's numeric-like and requires quotes for clarity
+    if t.starts_with('+') {
+        return true;
+    }
     false
 }
 
@@ -598,14 +631,34 @@ fn classify_numeric_hint(s: &str) -> Option<NumHint> {
     }
     let mut has_dot = false;
     let mut has_exp = false;
+    let mut in_exponent = false;
     for &b in &bytes[i..] {
         match b {
-            b'0'..=b'9' => {}
+            b'0'..=b'9' => {
+                // Digits are always valid
+            }
             b'.' => {
+                if in_exponent {
+                    // Dots not allowed in exponent
+                    return None;
+                }
                 has_dot = true;
             }
             b'e' | b'E' => {
+                if has_exp {
+                    // Multiple exponent markers not allowed
+                    return None;
+                }
                 has_exp = true;
+                in_exponent = true;
+            }
+            b'-' | b'+' => {
+                if !in_exponent {
+                    // Sign only allowed in exponent (already handled leading sign)
+                    return None;
+                }
+                // Sign is valid right after 'e'/'E', mark that we've seen it
+                in_exponent = false; // Don't allow multiple signs
             }
             _ => return None,
         }
