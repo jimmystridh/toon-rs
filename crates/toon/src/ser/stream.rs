@@ -132,15 +132,8 @@ impl<'a, 'de> Serializer for &'a mut StreamingSerializer<'de> {
     fn serialize_f64(self, f: f64) -> Result<Self::Ok, Self::Error> {
         if f.is_finite() {
             self.w.line(self.indent, &primitives::format_f64(f));
-        } else if f.is_nan() {
-            self.w
-                .line(self.indent, &primitives::escape_and_quote("NaN"));
-        } else if f.is_sign_positive() {
-            self.w
-                .line(self.indent, &primitives::escape_and_quote("Infinity"));
         } else {
-            self.w
-                .line(self.indent, &primitives::escape_and_quote("-Infinity"));
+            self.w.line(self.indent, primitives::format_null());
         }
         Ok(())
     }

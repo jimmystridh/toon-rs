@@ -876,6 +876,7 @@ dependencies = [
  "lexical-core",
  "memchr",
  "rand",
+ "ryu",
  "serde",
  "serde_json",
  "smallvec",

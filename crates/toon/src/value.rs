@@ -1,13 +1,12 @@
 #![allow(dead_code)]
 
 #[cfg(not(feature = "std"))]
-use alloc::{
-    string::{String, ToString},
-    vec::Vec,
-};
+use alloc::{string::String, vec::Vec};
 
 #[cfg(feature = "std")]
 use std::{string::String, vec::Vec};
+
+use crate::number::format_canonical_f64;
 
 #[derive(Debug, Clone, PartialEq)]
 pub enum Number {
@@ -21,13 +20,7 @@ impl core::fmt::Display for Number {
         match self {
             Number::I64(i) => write!(f, "{}", i),
             Number::U64(u) => write!(f, "{}", u),
-            Number::F64(num) => {
-                let mut s = num.to_string();
-                if !s.contains('.') && !s.contains('e') && !s.contains('E') {
-                    s.push_str(".0");
-                }
-                f.write_str(&s)
-            }
+            Number::F64(num) => f.write_str(&format_canonical_f64(*num)),
         }
     }
 }

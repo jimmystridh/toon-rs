@@ -77,25 +77,17 @@ impl Serializer for &mut ValueSerializer {
     }
     fn serialize_f32(self, v: f32) -> Result<Self::Ok, Self::Error> {
         let f = v as f64;
-        if f.is_finite() {
-            Ok(Value::Number(Number::from_f64(f).unwrap()))
-        } else if f.is_nan() {
-            Ok(Value::String("NaN".to_string()))
-        } else if f.is_sign_positive() {
-            Ok(Value::String("Infinity".to_string()))
+        if let Some(num) = Number::from_f64(f) {
+            Ok(Value::Number(num))
         } else {
-            Ok(Value::String("-Infinity".to_string()))
+            Ok(Value::Null)
         }
     }
     fn serialize_f64(self, f: f64) -> Result<Self::Ok, Self::Error> {
-        if f.is_finite() {
-            Ok(Value::Number(Number::from_f64(f).unwrap()))
-        } else if f.is_nan() {
-            Ok(Value::String("NaN".to_string()))
-        } else if f.is_sign_positive() {
-            Ok(Value::String("Infinity".to_string()))
+        if let Some(num) = Number::from_f64(f) {
+            Ok(Value::Number(num))
         } else {
-            Ok(Value::String("-Infinity".to_string()))
+            Ok(Value::Null)
         }
     }
     fn serialize_char(self, v: char) -> Result<Self::Ok, Self::Error> {

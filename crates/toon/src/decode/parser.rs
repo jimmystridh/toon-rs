@@ -7,6 +7,7 @@ use alloc::{
     vec::Vec,
 };
 
+use crate::number::has_forbidden_leading_zeros;
 use crate::value::{Number, Value};
 
 pub struct Parser<'a> {
@@ -73,6 +74,9 @@ impl<'a> Parser<'a> {
             if let Some(st) = unescape_json_string(s) {
                 return Value::String(st);
             }
+        }
+        if has_forbidden_leading_zeros(s) {
+            return Value::String(s.to_string());
         }
         match s {
             "true" => return Value::Bool(true),

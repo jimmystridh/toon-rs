@@ -53,15 +53,14 @@ fn roundtrip_empty_array() -> Result<(), Box<dyn std::error::Error>> {
 }
 
 #[test]
-fn encode_float_with_zero_decimal() -> Result<(), Box<dyn std::error::Error>> {
-    let value = json!({"x": 0.0, "y": 1.0, "z": 2.0});
+fn canonical_number_formatting() -> Result<(), Box<dyn std::error::Error>> {
+    let value = json!({"x": 0.0, "y": 1.0, "z": 1.5, "neg": -0.5});
     let options = toon::Options::default();
     let s = toon::encode_to_string(&value, &options)?;
-
-    // Floats should always have decimal point to preserve type
-    assert!(s.contains("0.0"));
-    assert!(s.contains("1.0"));
-    assert!(s.contains("2.0"));
+    assert!(s.contains("x: 0"));
+    assert!(s.contains("y: 1"));
+    assert!(s.contains("z: 1.5"));
+    assert!(s.contains("neg: -0.5"));
     Ok(())
 }
 
@@ -73,7 +72,7 @@ fn roundtrip_floats_preserves_decimals() -> Result<(), Box<dyn std::error::Error
     let encoded = toon::encode_to_string(&original, &options)?;
     let decoded: serde_json::Value = toon::decode_from_str(&encoded, &options)?;
 
-    assert_eq!(original, decoded);
+    assert_eq!(decoded, json!({"a": 0, "b": 1, "c": 1.5}));
     Ok(())
 }
 
@@ -83,10 +82,10 @@ fn roundtrip_root_float() -> Result<(), Box<dyn std::error::Error>> {
     let options = toon::Options::default();
 
     let encoded = toon::encode_to_string(&original, &options)?;
-    assert_eq!(encoded.trim(), "0.0");
+    assert_eq!(encoded.trim(), "0");
 
     let decoded: serde_json::Value = toon::decode_from_str(&encoded, &options)?;
-    assert_eq!(original, decoded);
+    assert_eq!(decoded, json!(0));
     Ok(())
 }
 
