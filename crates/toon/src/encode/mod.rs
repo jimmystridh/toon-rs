@@ -7,6 +7,7 @@ pub mod normalize;
 pub mod primitives;
 pub mod writer;
 
+#[cfg(all(feature = "serde", feature = "json"))]
 use crate::{Result, options::Options};
 
 #[cfg(all(feature = "serde", feature = "json"))]
