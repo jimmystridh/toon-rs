@@ -183,3 +183,15 @@ fn roundtrip_object_value_with_unicode_whitespace() -> Result<(), Box<dyn std::e
     assert_eq!(original, decoded);
     Ok(())
 }
+
+#[test]
+fn roundtrip_tabular_header_with_unicode_whitespace() -> Result<(), Box<dyn std::error::Error>> {
+    let original = json!([[{"\u{2001}": null}]]);
+    let options = toon::Options::default();
+
+    let encoded = toon::encode_to_string(&original, &options)?;
+    let decoded: serde_json::Value = toon::decode_from_str(&encoded, &options)?;
+
+    assert_eq!(original, decoded);
+    Ok(())
+}
