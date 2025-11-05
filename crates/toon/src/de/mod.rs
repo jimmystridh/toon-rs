@@ -6,7 +6,7 @@ use alloc::{format, string::String, vec::Vec};
 use serde::de::{self, DeserializeOwned, IntoDeserializer, MapAccess, SeqAccess};
 
 use crate::value::{Number, Value};
-use crate::{options::Options, Result};
+use crate::{Result, options::Options};
 
 #[cfg(feature = "de_direct")]
 pub mod direct;
@@ -143,7 +143,10 @@ pub fn from_str<T: DeserializeOwned>(s: &str, options: &Options) -> Result<T> {
         let lines = crate::decode::scanner::scan(s);
         if options.strict {
             if let Err(e) = crate::decode::validation::validate_indentation(&lines) {
-                return Err(crate::error::Error::Syntax { line: e.line, message: e.message });
+                return Err(crate::error::Error::Syntax {
+                    line: e.line,
+                    message: e.message,
+                });
             }
         }
         let v = crate::decode::parser::parse_to_internal_value_from_lines(lines, options.strict)?;
