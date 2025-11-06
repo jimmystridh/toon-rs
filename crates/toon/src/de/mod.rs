@@ -148,7 +148,7 @@ pub fn from_str<T: DeserializeOwned + 'static>(s: &str, options: &Options) -> Re
                 return from_str_via_internal_value(s, options);
             }
         }
-        return crate::de::direct::from_str(s, options);
+        crate::de::direct::from_str(s, options)
     }
 
     #[cfg(not(feature = "de_direct"))]

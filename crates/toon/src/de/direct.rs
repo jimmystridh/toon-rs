@@ -211,7 +211,7 @@ impl<'de, 'a, 'b> SeqAccess<'de> for SeqDe<'a, 'b> {
                 return Ok(None);
             }
             match &pl.kind {
-                LineKind::ListItem { value } => value.clone(),
+                LineKind::ListItem { value } => *value,
                 _ => return Ok(None),
             }
         } else {

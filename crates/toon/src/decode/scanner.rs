@@ -57,23 +57,21 @@ fn find_unquoted_colon(s: &str) -> Option<usize> {
             } else {
                 return None;
             }
-        } else {
-            if let Some(rel) = memchr::memchr2(b'"', b':', &b[i..]) {
-                let idx = i + rel;
-                match b[idx] {
-                    b'"' => {
-                        in_str = true;
-                        i = idx + 1;
-                    }
-                    b':' => {
-                        return Some(idx);
-                    }
-                    _ => unreachable!(),
+        } else if let Some(rel) = memchr::memchr2(b'"', b':', &b[i..]) {
+            let idx = i + rel;
+            match b[idx] {
+                b'"' => {
+                    in_str = true;
+                    i = idx + 1;
                 }
-                continue;
-            } else {
-                return None;
+                b':' => {
+                    return Some(idx);
+                }
+                _ => unreachable!(),
             }
+            continue;
+        } else {
+            return None;
         }
     }
     None
