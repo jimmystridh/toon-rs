@@ -55,6 +55,24 @@ This will build the WASM module and generate the necessary JavaScript bindings i
 
 4. Click "Run Benchmark" to start the performance comparison
 
+## Configuration
+
+### Iterations
+
+The benchmark runs each test multiple times and averages the results for accuracy. You can configure the number of iterations:
+
+- **Default**: 1000 iterations per test
+- **Range**: 10 to 10,000 iterations
+- **Adjust**: Use the "Iterations per test" input field before running the benchmark
+
+**Guidelines:**
+- Higher iterations = more accurate results, but slower execution
+- For quick tests: 100-500 iterations
+- For stable results: 1000-2000 iterations (recommended)
+- For high precision: 5000-10000 iterations
+
+The benchmark displays the iteration count in the status message when running.
+
 ## What It Tests
 
 The benchmark evaluates both **encoding (JSON → TOON)** and **decoding (TOON → JSON)** operations across multiple test scenarios:
@@ -110,7 +128,7 @@ Performance advantages increase with:
    - Loads the JavaScript module from npm via CDN: `@toon-format/toon`
 
 2. **Test Execution**
-   - Runs each test case 100 times (configurable)
+   - Runs each test case multiple times (default: 1000 iterations, configurable via UI)
    - Measures average time using `performance.now()`
    - Tests both encoding and decoding operations
 

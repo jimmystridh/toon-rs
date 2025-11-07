@@ -193,6 +193,38 @@
             box-shadow: none;
         }
 
+        .config-group {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            padding: 12px 18px;
+            background: rgba(255, 255, 255, 0.03);
+            border: 1px solid rgba(255, 255, 255, 0.08);
+            border-radius: 12px;
+        }
+
+        .config-group label {
+            color: var(--muted);
+            font-size: 0.9rem;
+            white-space: nowrap;
+        }
+
+        .config-group input[type="number"] {
+            background: rgba(2, 6, 23, 0.55);
+            border: 1px solid rgba(255, 255, 255, 0.15);
+            border-radius: 8px;
+            padding: 8px 12px;
+            color: var(--text);
+            font-family: 'JetBrains Mono', monospace;
+            font-size: 0.9rem;
+            width: 100px;
+        }
+
+        .config-group input[type="number"]:focus {
+            outline: none;
+            border-color: rgba(94, 252, 232, 0.5);
+        }
+
         .status-message {
             padding: 12px 18px;
             border-radius: 12px;
@@ -372,6 +404,12 @@
                 </div>
             </div>
 
+            <div class="config-group">
+                <label for="iterationsInput">Iterations per test:</label>
+                <input type="number" id="iterationsInput" min="10" max="10000" value="1000" step="100">
+                <span style="color: var(--muted); font-size: 0.85rem;">Higher values = more accurate, slower</span>
+            </div>
+
             <div id="statusContainer"></div>
             <div id="progressContainer"></div>
         </section>
@@ -509,7 +547,7 @@
             }
         }
 
-        function benchmark(fn, iterations = 100) {
+        function benchmark(fn, iterations = 1000) {
             const start = performance.now();
             for (let i = 0; i < iterations; i++) {
                 fn();
@@ -525,8 +563,11 @@
             }
 
             const runBtn = document.getElementById('runBenchmarkBtn');
+            const iterationsInput = document.getElementById('iterationsInput');
+            const iterations = parseInt(iterationsInput.value) || 1000;
+
             runBtn.disabled = true;
-            showStatus('Running benchmarks...', 'info');
+            showStatus(`Running benchmarks (${iterations} iterations per test)...`, 'info');
 
             const results = {
                 encode: {},
@@ -550,7 +591,7 @@
                     } catch (e) {
                         console.error('WASM encode error:', e);
                     }
-                });
+                }, iterations);
 
                 let jsEncodeTime = null;
                 if (jsModule && jsModule.encode) {
@@ -560,7 +601,7 @@
                         } catch (e) {
                             console.error('JS encode error:', e);
                         }
-                    });
+                    }, iterations);
                 }
 
                 results.encode[key] = {
@@ -584,7 +625,7 @@
                     } catch (e) {
                         console.error('WASM decode error:', e);
                     }
-                });
+                }, iterations);
 
                 let jsDecodeTime = null;
                 if (jsModule && jsModule.decode) {
@@ -594,7 +635,7 @@
                         } catch (e) {
                             console.error('JS decode error:', e);
                         }
-                    });
+                    }, iterations);
                 }
 
                 results.decode[key] = {
