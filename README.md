@@ -195,7 +195,11 @@ toon-cli --strict --decode data.toon
 
 ### WebAssembly
 
-TOON includes WebAssembly bindings for use in browsers and Node.js:
+TOON includes WebAssembly bindings for use in browsers and Node.js.
+
+**[Try the live demo on GitHub Pages →](https://jimmystridh.github.io/toon-rs/)**
+
+Build locally:
 
 ```bash
 # Install wasm-pack

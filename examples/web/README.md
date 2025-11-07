@@ -2,6 +2,8 @@
 
 This is a web-based example demonstrating the TOON serialization format using WebAssembly.
 
+**[Try the live demo on GitHub Pages →](https://jimmystridh.github.io/toon-rs/)**
+
 ## Features
 
 - Convert JSON to TOON format
@@ -35,7 +37,11 @@ Or manually:
 wasm-pack build crates/toon-wasm --target web --out-dir ../../examples/web/pkg
 ```
 
-## Running
+## Automatic Deployment
+
+The web demo is automatically deployed to GitHub Pages on every push to the `main` branch. The deployment workflow builds the WASM module and publishes it to https://jimmystridh.github.io/toon-rs/
+
+## Running Locally
 
 After building, serve the `examples/web` directory with any HTTP server:
 
