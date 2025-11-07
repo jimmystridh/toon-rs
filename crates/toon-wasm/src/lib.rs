@@ -2,8 +2,19 @@ use serde_json::Value;
 use toon::{Delimiter, Options};
 use wasm_bindgen::prelude::*;
 
+/// Use wee_alloc as the global allocator for smaller WASM binary size
+#[global_allocator]
+static ALLOC: wee_alloc::WeeAlloc = wee_alloc::WeeAlloc::INIT;
+
 /// Maximum input size in bytes (10 MB)
 const MAX_INPUT_SIZE: usize = 10 * 1024 * 1024;
+
+/// Initialize panic hook for better error messages in browser console.
+/// Call this once when the module is loaded for improved debugging.
+#[wasm_bindgen(start)]
+pub fn init_panic_hook() {
+    console_error_panic_hook::set_once();
+}
 
 /// Convert JSON string to TOON format
 #[wasm_bindgen]
