@@ -2,6 +2,9 @@ use serde_json::Value;
 use toon::{Delimiter, Options};
 use wasm_bindgen::prelude::*;
 
+/// Maximum input size in bytes (10 MB)
+const MAX_INPUT_SIZE: usize = 10 * 1024 * 1024;
+
 /// Convert JSON string to TOON format
 #[wasm_bindgen]
 pub fn json_to_toon(
@@ -9,6 +12,14 @@ pub fn json_to_toon(
     use_pipe_delimiter: bool,
     strict: bool,
 ) -> Result<String, String> {
+    // Validate input size
+    if json_str.len() > MAX_INPUT_SIZE {
+        return Err(format!(
+            "Input exceeds maximum size limit of {} bytes",
+            MAX_INPUT_SIZE
+        ));
+    }
+
     // Parse JSON
     let value: Value =
         serde_json::from_str(json_str).map_err(|e| format!("Invalid JSON: {}", e))?;
@@ -30,6 +41,14 @@ pub fn json_to_toon(
 /// Convert TOON string to JSON format
 #[wasm_bindgen]
 pub fn toon_to_json(toon_str: &str, strict: bool, pretty: bool) -> Result<String, String> {
+    // Validate input size
+    if toon_str.len() > MAX_INPUT_SIZE {
+        return Err(format!(
+            "Input exceeds maximum size limit of {} bytes",
+            MAX_INPUT_SIZE
+        ));
+    }
+
     // Configure options
     let options = Options {
         delimiter: Delimiter::Comma, // Delimiter is auto-detected during decode
@@ -82,5 +101,31 @@ mod tests {
         let original: serde_json::Value = serde_json::from_str(json).unwrap();
         let roundtrip: serde_json::Value = serde_json::from_str(&json_back).unwrap();
         assert_eq!(original, roundtrip);
+    }
+
+    #[test]
+    fn test_json_to_toon_size_limit() {
+        // Create a JSON string that exceeds MAX_INPUT_SIZE
+        let large_json = "x".repeat(MAX_INPUT_SIZE + 1);
+        let result = json_to_toon(&large_json, false, false);
+        assert!(result.is_err());
+        assert!(
+            result
+                .unwrap_err()
+                .contains("Input exceeds maximum size limit")
+        );
+    }
+
+    #[test]
+    fn test_toon_to_json_size_limit() {
+        // Create a TOON string that exceeds MAX_INPUT_SIZE
+        let large_toon = "x".repeat(MAX_INPUT_SIZE + 1);
+        let result = toon_to_json(&large_toon, false, false);
+        assert!(result.is_err());
+        assert!(
+            result
+                .unwrap_err()
+                .contains("Input exceeds maximum size limit")
+        );
     }
 }
