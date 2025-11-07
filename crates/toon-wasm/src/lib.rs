@@ -1,23 +1,30 @@
-use wasm_bindgen::prelude::*;
 use serde_json::Value;
-use toon::{Options, Delimiter};
+use toon::{Delimiter, Options};
+use wasm_bindgen::prelude::*;
 
 /// Convert JSON string to TOON format
 #[wasm_bindgen]
-pub fn json_to_toon(json_str: &str, use_pipe_delimiter: bool, strict: bool) -> Result<String, String> {
+pub fn json_to_toon(
+    json_str: &str,
+    use_pipe_delimiter: bool,
+    strict: bool,
+) -> Result<String, String> {
     // Parse JSON
-    let value: Value = serde_json::from_str(json_str)
-        .map_err(|e| format!("Invalid JSON: {}", e))?;
+    let value: Value =
+        serde_json::from_str(json_str).map_err(|e| format!("Invalid JSON: {}", e))?;
 
     // Configure options
     let options = Options {
-        delimiter: if use_pipe_delimiter { Delimiter::Pipe } else { Delimiter::Comma },
+        delimiter: if use_pipe_delimiter {
+            Delimiter::Pipe
+        } else {
+            Delimiter::Comma
+        },
         strict,
     };
 
     // Encode to TOON
-    toon::encode_to_string(&value, &options)
-        .map_err(|e| format!("TOON encoding error: {}", e))
+    toon::encode_to_string(&value, &options).map_err(|e| format!("TOON encoding error: {}", e))
 }
 
 /// Convert TOON string to JSON format
@@ -35,11 +42,9 @@ pub fn toon_to_json(toon_str: &str, strict: bool, pretty: bool) -> Result<String
 
     // Convert to JSON string
     if pretty {
-        serde_json::to_string_pretty(&value)
-            .map_err(|e| format!("JSON encoding error: {}", e))
+        serde_json::to_string_pretty(&value).map_err(|e| format!("JSON encoding error: {}", e))
     } else {
-        serde_json::to_string(&value)
-            .map_err(|e| format!("JSON encoding error: {}", e))
+        serde_json::to_string(&value).map_err(|e| format!("JSON encoding error: {}", e))
     }
 }
 
