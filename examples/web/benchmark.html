@@ -1,0 +1,835 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>TOON Benchmark: WASM vs JavaScript</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;600&family=Inter:wght@400;500;600&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+    <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+    <style>
+        :root {
+            --bg: #050913;
+            --bg-soft: rgba(9, 14, 32, 0.92);
+            --panel: rgba(6, 11, 25, 0.92);
+            --border: rgba(255, 255, 255, 0.08);
+            --text: #f8fbff;
+            --muted: rgba(248, 251, 255, 0.72);
+            --accent: #5efce8;
+            --accent-strong: #508bff;
+            --wasm-color: rgba(94, 252, 232, 0.8);
+            --js-color: rgba(255, 159, 64, 0.8);
+            --surface-glow: linear-gradient(135deg, rgba(80, 139, 255, 0.5), rgba(94, 252, 232, 0.25));
+            font-family: 'Inter', 'Space Grotesk', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+        }
+
+        * {
+            box-sizing: border-box;
+            margin: 0;
+        }
+
+        body {
+            min-height: 100vh;
+            padding: 48px 16px 64px;
+            background: radial-gradient(circle at top, #101c3f, #050913 55%);
+            color: var(--text);
+            position: relative;
+            overflow-x: hidden;
+        }
+
+        body::before,
+        body::after {
+            content: '';
+            position: absolute;
+            width: 360px;
+            height: 360px;
+            background: radial-gradient(circle, rgba(94, 252, 232, 0.2), transparent 65%);
+            filter: blur(25px);
+            z-index: -2;
+        }
+
+        body::before {
+            top: -120px;
+            right: 10%;
+        }
+
+        body::after {
+            bottom: -120px;
+            left: 5%;
+            background: radial-gradient(circle, rgba(80, 139, 255, 0.28), transparent 65%);
+        }
+
+        .page {
+            max-width: 1400px;
+            margin: 0 auto;
+            display: flex;
+            flex-direction: column;
+            gap: 28px;
+        }
+
+        .glass {
+            background: var(--bg-soft);
+            border: 1px solid var(--border);
+            border-radius: 20px;
+            backdrop-filter: blur(16px);
+            box-shadow: 0 16px 40px rgba(0, 0, 0, 0.35);
+        }
+
+        header.hero {
+            padding: 32px 40px;
+            display: flex;
+            flex-direction: column;
+            gap: 12px;
+        }
+
+        .hero-eyebrow {
+            font-size: 0.82rem;
+            letter-spacing: 0.18em;
+            text-transform: uppercase;
+            color: var(--muted);
+        }
+
+        h1 {
+            font-family: 'Space Grotesk', 'Inter', sans-serif;
+            font-size: clamp(2rem, 4vw, 3rem);
+            line-height: 1.1;
+        }
+
+        .hero p {
+            color: var(--muted);
+            max-width: 720px;
+            font-size: 1.02rem;
+        }
+
+        .badge-row {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 8px;
+            margin-top: 8px;
+        }
+
+        .badge {
+            padding: 8px 14px;
+            border-radius: 999px;
+            background: rgba(255, 255, 255, 0.05);
+            border: 1px solid rgba(255, 255, 255, 0.08);
+            font-size: 0.88rem;
+        }
+
+        .badge.wasm {
+            background: rgba(94, 252, 232, 0.15);
+            border-color: rgba(94, 252, 232, 0.3);
+        }
+
+        .badge.js {
+            background: rgba(255, 159, 64, 0.15);
+            border-color: rgba(255, 159, 64, 0.3);
+        }
+
+        .workbench {
+            padding: 28px 30px;
+            display: flex;
+            flex-direction: column;
+            gap: 20px;
+        }
+
+        .control-section {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            flex-wrap: wrap;
+            gap: 16px;
+        }
+
+        h2 {
+            font-size: 1.2rem;
+            letter-spacing: 0.1em;
+            text-transform: uppercase;
+            color: rgba(248, 251, 255, 0.85);
+        }
+
+        .button-group {
+            display: flex;
+            gap: 12px;
+            flex-wrap: wrap;
+        }
+
+        button {
+            border: none;
+            border-radius: 14px;
+            padding: 14px 24px;
+            font-size: 1rem;
+            font-weight: 600;
+            cursor: pointer;
+            transition: transform 0.18s ease, box-shadow 0.18s ease, background 0.18s;
+        }
+
+        button.primary {
+            background: var(--surface-glow);
+            color: #041126;
+            box-shadow: 0 12px 24px rgba(80, 139, 255, 0.28);
+        }
+
+        button.primary:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 16px 32px rgba(80, 139, 255, 0.35);
+        }
+
+        button.secondary {
+            background: rgba(255, 255, 255, 0.08);
+            color: var(--text);
+        }
+
+        button.secondary:hover {
+            background: rgba(255, 255, 255, 0.16);
+            transform: translateY(-1px);
+        }
+
+        button:disabled {
+            opacity: 0.5;
+            cursor: not-allowed;
+            transform: none;
+            box-shadow: none;
+        }
+
+        .status-message {
+            padding: 12px 18px;
+            border-radius: 12px;
+            font-size: 0.95rem;
+            border: 1px solid;
+            margin-bottom: 16px;
+        }
+
+        .status-message.info {
+            border-color: rgba(80, 139, 255, 0.6);
+            background: rgba(80, 139, 255, 0.08);
+            color: #7eb8ff;
+        }
+
+        .status-message.success {
+            border-color: rgba(130, 255, 196, 0.6);
+            background: rgba(130, 255, 196, 0.08);
+            color: #aeffd7;
+        }
+
+        .status-message.error {
+            border-color: rgba(255, 102, 153, 0.6);
+            background: rgba(255, 102, 153, 0.08);
+            color: #ff9ab6;
+        }
+
+        .chart-container {
+            padding: 24px;
+            background: var(--panel);
+            border: 1px solid var(--border);
+            border-radius: 18px;
+            min-height: 400px;
+        }
+
+        .results-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+            gap: 20px;
+        }
+
+        .result-card {
+            padding: 20px;
+            background: var(--panel);
+            border: 1px solid var(--border);
+            border-radius: 16px;
+        }
+
+        .result-card h3 {
+            font-size: 0.95rem;
+            letter-spacing: 0.12em;
+            text-transform: uppercase;
+            color: var(--muted);
+            margin-bottom: 12px;
+        }
+
+        .result-row {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 10px 0;
+            border-bottom: 1px solid rgba(255, 255, 255, 0.05);
+        }
+
+        .result-row:last-child {
+            border-bottom: none;
+        }
+
+        .result-label {
+            color: var(--muted);
+            font-size: 0.9rem;
+        }
+
+        .result-value {
+            font-family: 'JetBrains Mono', monospace;
+            font-size: 0.95rem;
+            font-weight: 600;
+        }
+
+        .result-value.wasm {
+            color: var(--wasm-color);
+        }
+
+        .result-value.js {
+            color: var(--js-color);
+        }
+
+        .speedup {
+            padding: 4px 10px;
+            border-radius: 8px;
+            background: rgba(130, 255, 196, 0.15);
+            color: #aeffd7;
+            font-size: 0.85rem;
+            font-weight: 600;
+        }
+
+        .speedup.slower {
+            background: rgba(255, 159, 64, 0.15);
+            color: #ffb366;
+        }
+
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            margin-top: 16px;
+        }
+
+        th, td {
+            padding: 12px;
+            text-align: left;
+            border-bottom: 1px solid rgba(255, 255, 255, 0.05);
+        }
+
+        th {
+            font-size: 0.85rem;
+            text-transform: uppercase;
+            letter-spacing: 0.1em;
+            color: var(--muted);
+            font-weight: 600;
+        }
+
+        td {
+            font-family: 'JetBrains Mono', monospace;
+            font-size: 0.9rem;
+        }
+
+        .progress-bar {
+            width: 100%;
+            height: 8px;
+            background: rgba(255, 255, 255, 0.05);
+            border-radius: 4px;
+            overflow: hidden;
+            margin-top: 12px;
+        }
+
+        .progress-fill {
+            height: 100%;
+            background: var(--surface-glow);
+            transition: width 0.3s ease;
+        }
+
+        @media (max-width: 768px) {
+            .control-section {
+                flex-direction: column;
+                align-items: stretch;
+            }
+
+            .button-group {
+                width: 100%;
+            }
+
+            .button-group button {
+                flex: 1;
+            }
+        }
+    </style>
+</head>
+<body>
+    <main class="page">
+        <header class="hero glass">
+            <div class="hero-eyebrow">Performance Comparison</div>
+            <h1>TOON Benchmark</h1>
+            <p>Compare the performance of the Rust/WebAssembly implementation against the native JavaScript implementation. Run comprehensive benchmarks on encoding and decoding operations across various data sizes.</p>
+            <div class="badge-row">
+                <span class="badge wasm">WASM (Rust)</span>
+                <span class="badge js">JavaScript (Native)</span>
+                <span class="badge">Multiple test cases</span>
+                <span class="badge">Accurate timing</span>
+            </div>
+        </header>
+
+        <section class="workbench glass">
+            <div class="control-section">
+                <h2>Benchmark Controls</h2>
+                <div class="button-group">
+                    <button class="primary" id="runBenchmarkBtn">Run Benchmark</button>
+                    <button class="secondary" id="clearResultsBtn">Clear Results</button>
+                </div>
+            </div>
+
+            <div id="statusContainer"></div>
+            <div id="progressContainer"></div>
+        </section>
+
+        <section class="workbench glass" id="resultsSection" style="display: none;">
+            <h2>Results Overview</h2>
+            <div class="results-grid">
+                <div class="result-card">
+                    <h3>Encoding (JSON → TOON)</h3>
+                    <div id="encodeResults"></div>
+                </div>
+                <div class="result-card">
+                    <h3>Decoding (TOON → JSON)</h3>
+                    <div id="decodeResults"></div>
+                </div>
+            </div>
+        </section>
+
+        <section class="workbench glass" id="chartSection" style="display: none;">
+            <h2>Performance Charts</h2>
+            <div class="chart-container">
+                <canvas id="performanceChart"></canvas>
+            </div>
+        </section>
+
+        <section class="workbench glass" id="detailedSection" style="display: none;">
+            <h2>Detailed Results</h2>
+            <div id="detailedResults"></div>
+        </section>
+    </main>
+
+    <script type="module">
+        import init, { json_to_toon, toon_to_json } from './pkg/toon_wasm.js';
+
+        // Test data generators
+        const testData = {
+            small: {
+                name: 'Small Object',
+                data: { name: "Alice", age: 30, active: true }
+            },
+            medium: {
+                name: 'Medium Object',
+                data: {
+                    user: {
+                        name: "Bob",
+                        email: "bob@example.com",
+                        address: { city: "New York", zip: "10001" },
+                        tags: ["developer", "designer", "creator"]
+                    },
+                    metadata: {
+                        created: "2024-01-01",
+                        updated: "2024-01-15"
+                    }
+                }
+            },
+            tabular: {
+                name: 'Tabular Data (100 rows)',
+                data: {
+                    users: Array.from({ length: 100 }, (_, i) => ({
+                        id: i + 1,
+                        name: `User${i + 1}`,
+                        age: 20 + (i % 50),
+                        active: i % 2 === 0,
+                        score: Math.random() * 100
+                    }))
+                }
+            },
+            large: {
+                name: 'Large Object (500 items)',
+                data: {
+                    items: Array.from({ length: 500 }, (_, i) => ({
+                        id: i,
+                        title: `Item ${i}`,
+                        description: `Description for item ${i} with some additional text to make it larger`,
+                        metadata: {
+                            created: "2024-01-01",
+                            tags: ["tag1", "tag2", "tag3"]
+                        }
+                    }))
+                }
+            },
+            nested: {
+                name: 'Deeply Nested',
+                data: {
+                    level1: {
+                        level2: {
+                            level3: {
+                                level4: {
+                                    level5: {
+                                        data: "Deep nested value",
+                                        items: [1, 2, 3, 4, 5]
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        };
+
+        let wasmModule;
+        let jsModule;
+        let chart;
+
+        function showStatus(message, type = 'info') {
+            const container = document.getElementById('statusContainer');
+            container.innerHTML = `<div class="status-message ${type}">${message}</div>`;
+        }
+
+        function showProgress(percent) {
+            const container = document.getElementById('progressContainer');
+            if (percent === 0) {
+                container.innerHTML = '';
+                return;
+            }
+            container.innerHTML = `
+                <div class="progress-bar">
+                    <div class="progress-fill" style="width: ${percent}%"></div>
+                </div>
+            `;
+        }
+
+        async function loadModules() {
+            showStatus('Loading WASM module...', 'info');
+            await init();
+            wasmModule = { json_to_toon, toon_to_json };
+
+            showStatus('Loading JavaScript module from npm...', 'info');
+            try {
+                jsModule = await import('https://cdn.jsdelivr.net/npm/@toon-format/toon@latest/dist/index.mjs');
+                showStatus('Both modules loaded successfully!', 'success');
+            } catch (error) {
+                showStatus(`Error loading JS module: ${error.message}. Using WASM only.`, 'error');
+                jsModule = null;
+            }
+        }
+
+        function benchmark(fn, iterations = 100) {
+            const start = performance.now();
+            for (let i = 0; i < iterations; i++) {
+                fn();
+            }
+            const end = performance.now();
+            return (end - start) / iterations;
+        }
+
+        async function runBenchmark() {
+            if (!wasmModule) {
+                showStatus('WASM module not loaded!', 'error');
+                return;
+            }
+
+            const runBtn = document.getElementById('runBenchmarkBtn');
+            runBtn.disabled = true;
+            showStatus('Running benchmarks...', 'info');
+
+            const results = {
+                encode: {},
+                decode: {}
+            };
+
+            const testKeys = Object.keys(testData);
+            let progress = 0;
+            const progressStep = 100 / (testKeys.length * 2); // encode + decode for each test
+
+            for (const key of testKeys) {
+                const test = testData[key];
+                const jsonStr = JSON.stringify(test.data);
+
+                // Benchmark encoding (JSON → TOON)
+                showStatus(`Benchmarking ${test.name}: Encoding...`, 'info');
+
+                const wasmEncodeTime = benchmark(() => {
+                    try {
+                        wasmModule.json_to_toon(jsonStr, true, false);
+                    } catch (e) {
+                        console.error('WASM encode error:', e);
+                    }
+                });
+
+                let jsEncodeTime = null;
+                if (jsModule && jsModule.encode) {
+                    jsEncodeTime = benchmark(() => {
+                        try {
+                            jsModule.encode(test.data, { delimiter: '|' });
+                        } catch (e) {
+                            console.error('JS encode error:', e);
+                        }
+                    });
+                }
+
+                results.encode[key] = {
+                    name: test.name,
+                    wasm: wasmEncodeTime,
+                    js: jsEncodeTime,
+                    size: jsonStr.length
+                };
+
+                progress += progressStep;
+                showProgress(progress);
+
+                // Benchmark decoding (TOON → JSON)
+                showStatus(`Benchmarking ${test.name}: Decoding...`, 'info');
+
+                const toonStr = wasmModule.json_to_toon(jsonStr, true, false);
+
+                const wasmDecodeTime = benchmark(() => {
+                    try {
+                        wasmModule.toon_to_json(toonStr, false, false);
+                    } catch (e) {
+                        console.error('WASM decode error:', e);
+                    }
+                });
+
+                let jsDecodeTime = null;
+                if (jsModule && jsModule.decode) {
+                    jsDecodeTime = benchmark(() => {
+                        try {
+                            jsModule.decode(toonStr);
+                        } catch (e) {
+                            console.error('JS decode error:', e);
+                        }
+                    });
+                }
+
+                results.decode[key] = {
+                    name: test.name,
+                    wasm: wasmDecodeTime,
+                    js: jsDecodeTime,
+                    size: toonStr.length
+                };
+
+                progress += progressStep;
+                showProgress(progress);
+            }
+
+            showProgress(0);
+            displayResults(results);
+            runBtn.disabled = false;
+            showStatus('Benchmark complete!', 'success');
+        }
+
+        function formatTime(ms) {
+            if (ms < 1) {
+                return `${(ms * 1000).toFixed(2)} µs`;
+            }
+            return `${ms.toFixed(3)} ms`;
+        }
+
+        function calculateSpeedup(wasm, js) {
+            if (!js) return null;
+            const speedup = js / wasm;
+            return speedup;
+        }
+
+        function displayResults(results) {
+            // Show results sections
+            document.getElementById('resultsSection').style.display = 'block';
+            document.getElementById('chartSection').style.display = 'block';
+            document.getElementById('detailedSection').style.display = 'block';
+
+            // Display encoding results
+            const encodeContainer = document.getElementById('encodeResults');
+            let encodeHtml = '';
+
+            for (const [key, result] of Object.entries(results.encode)) {
+                const speedup = calculateSpeedup(result.wasm, result.js);
+                encodeHtml += `
+                    <div class="result-row">
+                        <div>
+                            <div class="result-label">${result.name}</div>
+                            <div style="font-size: 0.8rem; color: var(--muted); margin-top: 4px;">
+                                WASM: <span class="result-value wasm">${formatTime(result.wasm)}</span>
+                                ${result.js ? `| JS: <span class="result-value js">${formatTime(result.js)}</span>` : ''}
+                            </div>
+                        </div>
+                        ${speedup ? `<span class="speedup ${speedup > 1 ? '' : 'slower'}">${speedup.toFixed(2)}x ${speedup > 1 ? 'faster' : 'slower'}</span>` : ''}
+                    </div>
+                `;
+            }
+            encodeContainer.innerHTML = encodeHtml;
+
+            // Display decoding results
+            const decodeContainer = document.getElementById('decodeResults');
+            let decodeHtml = '';
+
+            for (const [key, result] of Object.entries(results.decode)) {
+                const speedup = calculateSpeedup(result.wasm, result.js);
+                decodeHtml += `
+                    <div class="result-row">
+                        <div>
+                            <div class="result-label">${result.name}</div>
+                            <div style="font-size: 0.8rem; color: var(--muted); margin-top: 4px;">
+                                WASM: <span class="result-value wasm">${formatTime(result.wasm)}</span>
+                                ${result.js ? `| JS: <span class="result-value js">${formatTime(result.js)}</span>` : ''}
+                            </div>
+                        </div>
+                        ${speedup ? `<span class="speedup ${speedup > 1 ? '' : 'slower'}">${speedup.toFixed(2)}x ${speedup > 1 ? 'faster' : 'slower'}</span>` : ''}
+                    </div>
+                `;
+            }
+            decodeContainer.innerHTML = decodeHtml;
+
+            // Display detailed table
+            const detailedContainer = document.getElementById('detailedResults');
+            let tableHtml = `
+                <table>
+                    <thead>
+                        <tr>
+                            <th>Test Case</th>
+                            <th>Operation</th>
+                            <th>Input Size</th>
+                            <th>WASM</th>
+                            <th>JavaScript</th>
+                            <th>Speedup</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+            `;
+
+            for (const [key, result] of Object.entries(results.encode)) {
+                const speedup = calculateSpeedup(result.wasm, result.js);
+                tableHtml += `
+                    <tr>
+                        <td>${result.name}</td>
+                        <td>Encode</td>
+                        <td>${result.size} bytes</td>
+                        <td class="result-value wasm">${formatTime(result.wasm)}</td>
+                        <td class="result-value js">${result.js ? formatTime(result.js) : 'N/A'}</td>
+                        <td>${speedup ? `${speedup.toFixed(2)}x` : 'N/A'}</td>
+                    </tr>
+                `;
+            }
+
+            for (const [key, result] of Object.entries(results.decode)) {
+                const speedup = calculateSpeedup(result.wasm, result.js);
+                tableHtml += `
+                    <tr>
+                        <td>${result.name}</td>
+                        <td>Decode</td>
+                        <td>${result.size} bytes</td>
+                        <td class="result-value wasm">${formatTime(result.wasm)}</td>
+                        <td class="result-value js">${result.js ? formatTime(result.js) : 'N/A'}</td>
+                        <td>${speedup ? `${speedup.toFixed(2)}x` : 'N/A'}</td>
+                    </tr>
+                `;
+            }
+
+            tableHtml += '</tbody></table>';
+            detailedContainer.innerHTML = tableHtml;
+
+            // Display chart
+            displayChart(results);
+        }
+
+        function displayChart(results) {
+            const ctx = document.getElementById('performanceChart');
+
+            if (chart) {
+                chart.destroy();
+            }
+
+            const labels = Object.values(results.encode).map(r => r.name);
+            const wasmEncode = Object.values(results.encode).map(r => r.wasm);
+            const jsEncode = Object.values(results.encode).map(r => r.js);
+            const wasmDecode = Object.values(results.decode).map(r => r.wasm);
+            const jsDecode = Object.values(results.decode).map(r => r.js);
+
+            const datasets = [
+                {
+                    label: 'WASM Encode',
+                    data: wasmEncode,
+                    backgroundColor: 'rgba(94, 252, 232, 0.5)',
+                    borderColor: 'rgba(94, 252, 232, 1)',
+                    borderWidth: 2
+                },
+                {
+                    label: 'WASM Decode',
+                    data: wasmDecode,
+                    backgroundColor: 'rgba(94, 252, 232, 0.3)',
+                    borderColor: 'rgba(94, 252, 232, 0.8)',
+                    borderWidth: 2
+                }
+            ];
+
+            if (jsEncode.some(v => v !== null)) {
+                datasets.push({
+                    label: 'JS Encode',
+                    data: jsEncode,
+                    backgroundColor: 'rgba(255, 159, 64, 0.5)',
+                    borderColor: 'rgba(255, 159, 64, 1)',
+                    borderWidth: 2
+                });
+                datasets.push({
+                    label: 'JS Decode',
+                    data: jsDecode,
+                    backgroundColor: 'rgba(255, 159, 64, 0.3)',
+                    borderColor: 'rgba(255, 159, 64, 0.8)',
+                    borderWidth: 2
+                });
+            }
+
+            chart = new Chart(ctx, {
+                type: 'bar',
+                data: { labels, datasets },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: true,
+                    plugins: {
+                        legend: {
+                            labels: { color: '#f8fbff' }
+                        },
+                        title: {
+                            display: true,
+                            text: 'Average Operation Time (lower is better)',
+                            color: '#f8fbff',
+                            font: { size: 16 }
+                        }
+                    },
+                    scales: {
+                        y: {
+                            beginAtZero: true,
+                            title: {
+                                display: true,
+                                text: 'Time (ms)',
+                                color: '#f8fbff'
+                            },
+                            ticks: { color: '#f8fbff' },
+                            grid: { color: 'rgba(255, 255, 255, 0.1)' }
+                        },
+                        x: {
+                            ticks: { color: '#f8fbff' },
+                            grid: { color: 'rgba(255, 255, 255, 0.1)' }
+                        }
+                    }
+                }
+            });
+        }
+
+        function clearResults() {
+            document.getElementById('resultsSection').style.display = 'none';
+            document.getElementById('chartSection').style.display = 'none';
+            document.getElementById('detailedSection').style.display = 'none';
+            document.getElementById('statusContainer').innerHTML = '';
+            if (chart) {
+                chart.destroy();
+                chart = null;
+            }
+        }
+
+        async function main() {
+            await loadModules();
+
+            document.getElementById('runBenchmarkBtn').addEventListener('click', runBenchmark);
+            document.getElementById('clearResultsBtn').addEventListener('click', clearResults);
+        }
+
+        main().catch(console.error);
+    </script>
+</body>
+</html>

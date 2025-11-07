@@ -12,6 +12,7 @@ This is a web-based example demonstrating the TOON serialization format using We
 - Support for pipe (|) and comma (,) delimiters
 - Strict mode validation
 - Multiple example templates
+- **Performance benchmark** comparing WASM vs JavaScript implementation
 
 ## Building
 
@@ -58,6 +59,29 @@ npx http-server -p 8000
 ```
 
 Then open http://localhost:8000 in your browser.
+
+## Pages
+
+### Main Demo (`index.html`)
+
+Interactive playground for converting between JSON and TOON formats.
+
+### Benchmark (`benchmark.html`)
+
+Performance comparison between the Rust/WASM implementation and the native JavaScript implementation from npm (`@toon-format/toon`).
+
+**Features:**
+- Comprehensive test cases (small, medium, tabular, large, nested)
+- Multiple iterations for accurate timing
+- Visual charts and detailed metrics
+- Speedup calculations
+
+**[Read the full benchmark documentation →](BENCHMARK.md)**
+
+To access the benchmark:
+```
+http://localhost:8000/benchmark.html
+```
 
 ## Usage
 
