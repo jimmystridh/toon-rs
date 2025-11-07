@@ -193,6 +193,48 @@ toon-cli --delimiter ',' data.json
 toon-cli --strict --decode data.toon
 ```
 
+### WebAssembly
+
+TOON includes WebAssembly bindings for use in browsers and Node.js:
+
+```bash
+# Install wasm-pack
+cargo install wasm-pack
+
+# Build the WASM module
+./examples/web/build.sh
+
+# Serve the example page
+cd examples/web
+python3 -m http.server 8000
+```
+
+Then open http://localhost:8000 to try the interactive JSON ↔ TOON converter.
+
+**JavaScript API:**
+
+```javascript
+import init, { json_to_toon, toon_to_json } from './pkg/toon_wasm.js';
+
+await init();
+
+// Convert JSON to TOON
+const toon = json_to_toon(
+  '{"name": "Alice", "age": 30}',
+  true,  // use pipe delimiter
+  false  // strict mode
+);
+
+// Convert TOON to JSON
+const json = toon_to_json(
+  'name: Alice\nage: 30',
+  false, // strict mode
+  true   // pretty format
+);
+```
+
+See [examples/web/README.md](examples/web/README.md) for details.
+
 ## Performance
 
 Criterion benchmarks (decode) with optional perf features and direct deserializer produce large gains on typical datasets. To run:
@@ -287,7 +329,10 @@ toon-rs/
 │   │   ├── decode/    # TOON parser
 │   │   ├── ser/       # serde::Serializer
 │   │   └── de/        # serde::Deserializer
-│   └── toon-cli/      # Command-line tool
+│   ├── toon-cli/      # Command-line tool
+│   └── toon-wasm/     # WebAssembly bindings
+├── examples/
+│   └── web/           # Interactive web demo
 ├── spec/              # Official test fixtures (submodule)
 └── README.md
 ```
@@ -348,7 +393,7 @@ We welcome contributions! Here's how to get started:
 - [x] Performance benchmarks
 - [ ] Property-based tests
 - [x] No-std support (alloc-only)
-- [ ] WASM bindings
+- [x] WASM bindings
 - [ ] Language server protocol (LSP) for editors
 
 ## License

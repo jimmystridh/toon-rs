@@ -1,0 +1,414 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>TOON Converter - JSON ↔ TOON</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            padding: 20px;
+        }
+
+        .container {
+            max-width: 1400px;
+            margin: 0 auto;
+            background: white;
+            border-radius: 12px;
+            box-shadow: 0 10px 40px rgba(0, 0, 0, 0.1);
+            overflow: hidden;
+        }
+
+        header {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            padding: 30px;
+            text-align: center;
+        }
+
+        header h1 {
+            font-size: 2.5em;
+            margin-bottom: 10px;
+        }
+
+        header p {
+            font-size: 1.1em;
+            opacity: 0.9;
+        }
+
+        .converter {
+            display: grid;
+            grid-template-columns: 1fr auto 1fr;
+            gap: 20px;
+            padding: 30px;
+            align-items: start;
+        }
+
+        .panel {
+            display: flex;
+            flex-direction: column;
+            height: 600px;
+        }
+
+        .panel h2 {
+            font-size: 1.5em;
+            margin-bottom: 15px;
+            color: #333;
+        }
+
+        textarea {
+            flex: 1;
+            padding: 15px;
+            border: 2px solid #e0e0e0;
+            border-radius: 8px;
+            font-family: 'Courier New', Courier, monospace;
+            font-size: 14px;
+            resize: none;
+            transition: border-color 0.3s;
+        }
+
+        textarea:focus {
+            outline: none;
+            border-color: #667eea;
+        }
+
+        .controls {
+            display: flex;
+            flex-direction: column;
+            gap: 15px;
+            justify-content: center;
+        }
+
+        .button-group {
+            display: flex;
+            flex-direction: column;
+            gap: 10px;
+        }
+
+        button {
+            padding: 15px 25px;
+            font-size: 1em;
+            font-weight: 600;
+            border: none;
+            border-radius: 8px;
+            cursor: pointer;
+            transition: all 0.3s;
+            white-space: nowrap;
+        }
+
+        button.primary {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+        }
+
+        button.primary:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 5px 15px rgba(102, 126, 234, 0.4);
+        }
+
+        button.secondary {
+            background: #f5f5f5;
+            color: #333;
+        }
+
+        button.secondary:hover {
+            background: #e0e0e0;
+        }
+
+        button:disabled {
+            opacity: 0.5;
+            cursor: not-allowed;
+            transform: none !important;
+        }
+
+        .options {
+            background: #f9f9f9;
+            padding: 20px;
+            border-radius: 8px;
+            margin-top: 15px;
+        }
+
+        .options h3 {
+            font-size: 1em;
+            margin-bottom: 12px;
+            color: #555;
+        }
+
+        .option-item {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            margin-bottom: 8px;
+        }
+
+        .option-item input[type="checkbox"] {
+            width: 18px;
+            height: 18px;
+            cursor: pointer;
+        }
+
+        .option-item label {
+            font-size: 0.95em;
+            color: #666;
+            cursor: pointer;
+        }
+
+        .error {
+            background: #fee;
+            color: #c33;
+            padding: 15px;
+            border-radius: 8px;
+            margin-top: 15px;
+            border-left: 4px solid #c33;
+        }
+
+        .success {
+            background: #efe;
+            color: #3c3;
+            padding: 15px;
+            border-radius: 8px;
+            margin-top: 15px;
+            border-left: 4px solid #3c3;
+        }
+
+        .examples {
+            padding: 30px;
+            background: #f9f9f9;
+            border-top: 1px solid #e0e0e0;
+        }
+
+        .examples h3 {
+            font-size: 1.3em;
+            margin-bottom: 15px;
+            color: #333;
+        }
+
+        .example-buttons {
+            display: flex;
+            gap: 10px;
+            flex-wrap: wrap;
+        }
+
+        .example-btn {
+            padding: 10px 20px;
+            background: white;
+            border: 2px solid #667eea;
+            color: #667eea;
+            border-radius: 6px;
+            cursor: pointer;
+            transition: all 0.3s;
+        }
+
+        .example-btn:hover {
+            background: #667eea;
+            color: white;
+        }
+
+        @media (max-width: 1024px) {
+            .converter {
+                grid-template-columns: 1fr;
+                grid-template-rows: auto auto auto;
+            }
+
+            .controls {
+                flex-direction: row;
+                justify-content: center;
+            }
+
+            .button-group {
+                flex-direction: row;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <header>
+            <h1>TOON Converter</h1>
+            <p>Token-Oriented Object Notation - Human-readable, token-efficient data format for LLMs</p>
+        </header>
+
+        <div class="converter">
+            <div class="panel">
+                <h2>JSON</h2>
+                <textarea id="jsonInput" placeholder='Enter JSON here, e.g.:\n{\n  "name": "Alice",\n  "age": 30,\n  "active": true\n}'></textarea>
+                <div id="jsonError"></div>
+            </div>
+
+            <div class="controls">
+                <div class="button-group">
+                    <button class="primary" id="jsonToToonBtn" title="Convert JSON to TOON">
+                        JSON → TOON
+                    </button>
+                    <button class="primary" id="toonToJsonBtn" title="Convert TOON to JSON">
+                        TOON → JSON
+                    </button>
+                </div>
+                <div class="options">
+                    <h3>Options</h3>
+                    <div class="option-item">
+                        <input type="checkbox" id="usePipeDelimiter" checked>
+                        <label for="usePipeDelimiter">Use pipe delimiter (|)</label>
+                    </div>
+                    <div class="option-item">
+                        <input type="checkbox" id="strictMode">
+                        <label for="strictMode">Strict mode</label>
+                    </div>
+                    <div class="option-item">
+                        <input type="checkbox" id="prettyJson" checked>
+                        <label for="prettyJson">Pretty JSON</label>
+                    </div>
+                </div>
+                <div class="button-group">
+                    <button class="secondary" id="clearBtn">Clear All</button>
+                </div>
+            </div>
+
+            <div class="panel">
+                <h2>TOON</h2>
+                <textarea id="toonOutput" placeholder='TOON output will appear here...'></textarea>
+                <div id="toonError"></div>
+            </div>
+        </div>
+
+        <div class="examples">
+            <h3>Try these examples:</h3>
+            <div class="example-buttons">
+                <button class="example-btn" data-example="simple">Simple Object</button>
+                <button class="example-btn" data-example="nested">Nested Object</button>
+                <button class="example-btn" data-example="array">Array</button>
+                <button class="example-btn" data-example="tabular">Tabular Data</button>
+            </div>
+        </div>
+    </div>
+
+    <script type="module">
+        import init, { json_to_toon, toon_to_json } from './pkg/toon_wasm.js';
+
+        const examples = {
+            simple: {
+                name: "Alice",
+                age: 30,
+                active: true
+            },
+            nested: {
+                user: {
+                    name: "Bob",
+                    email: "bob@example.com",
+                    address: {
+                        city: "New York",
+                        zip: "10001"
+                    }
+                }
+            },
+            array: {
+                colors: ["red", "green", "blue"],
+                numbers: [1, 2, 3, 4, 5]
+            },
+            tabular: {
+                users: [
+                    { id: 1, name: "Alice", age: 30, active: true },
+                    { id: 2, name: "Bob", age: 25, active: false },
+                    { id: 3, name: "Charlie", age: 35, active: true }
+                ]
+            }
+        };
+
+        async function main() {
+            await init();
+
+            const jsonInput = document.getElementById('jsonInput');
+            const toonOutput = document.getElementById('toonOutput');
+            const jsonError = document.getElementById('jsonError');
+            const toonError = document.getElementById('toonError');
+            const jsonToToonBtn = document.getElementById('jsonToToonBtn');
+            const toonToJsonBtn = document.getElementById('toonToJsonBtn');
+            const clearBtn = document.getElementById('clearBtn');
+            const usePipeDelimiter = document.getElementById('usePipeDelimiter');
+            const strictMode = document.getElementById('strictMode');
+            const prettyJson = document.getElementById('prettyJson');
+
+            function showError(element, message) {
+                element.innerHTML = `<div class="error">${message}</div>`;
+            }
+
+            function showSuccess(element, message) {
+                element.innerHTML = `<div class="success">${message}</div>`;
+            }
+
+            function clearErrors() {
+                jsonError.innerHTML = '';
+                toonError.innerHTML = '';
+            }
+
+            jsonToToonBtn.addEventListener('click', () => {
+                clearErrors();
+                try {
+                    const json = jsonInput.value.trim();
+                    if (!json) {
+                        showError(jsonError, 'Please enter some JSON');
+                        return;
+                    }
+
+                    const toon = json_to_toon(
+                        json,
+                        usePipeDelimiter.checked,
+                        strictMode.checked
+                    );
+                    toonOutput.value = toon;
+                    showSuccess(toonError, 'Converted successfully!');
+                    setTimeout(() => clearErrors(), 2000);
+                } catch (error) {
+                    showError(jsonError, error.toString());
+                }
+            });
+
+            toonToJsonBtn.addEventListener('click', () => {
+                clearErrors();
+                try {
+                    const toon = toonOutput.value.trim();
+                    if (!toon) {
+                        showError(toonError, 'Please enter some TOON');
+                        return;
+                    }
+
+                    const json = toon_to_json(
+                        toon,
+                        strictMode.checked,
+                        prettyJson.checked
+                    );
+                    jsonInput.value = json;
+                    showSuccess(jsonError, 'Converted successfully!');
+                    setTimeout(() => clearErrors(), 2000);
+                } catch (error) {
+                    showError(toonError, error.toString());
+                }
+            });
+
+            clearBtn.addEventListener('click', () => {
+                jsonInput.value = '';
+                toonOutput.value = '';
+                clearErrors();
+            });
+
+            document.querySelectorAll('.example-btn').forEach(btn => {
+                btn.addEventListener('click', () => {
+                    const example = btn.dataset.example;
+                    jsonInput.value = JSON.stringify(examples[example], null, 2);
+                    clearErrors();
+                });
+            });
+        }
+
+        main().catch(console.error);
+    </script>
+</body>
+</html>
