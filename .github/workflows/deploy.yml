@@ -37,7 +37,20 @@ jobs:
 
       - name: Build WASM module
         run: |
-          wasm-pack build crates/toon-wasm --target web --out-dir ../../examples/web/pkg
+          # Build with --release for optimized output
+          # wasm-pack automatically runs wasm-opt for size reduction
+          wasm-pack build crates/toon-wasm --target web --release --out-dir ../../examples/web/pkg
+
+      - name: Report build artifacts
+        run: |
+          echo "📦 Build artifacts:"
+          ls -lh examples/web/pkg/
+          echo ""
+          echo "📊 WASM binary size:"
+          du -h examples/web/pkg/toon_wasm_bg.wasm
+          echo ""
+          echo "📈 Total package size:"
+          du -sh examples/web/pkg/
 
       - name: Prepare deployment
         run: |
