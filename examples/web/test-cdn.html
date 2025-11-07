@@ -1,0 +1,57 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Test CDN Import</title>
+</head>
+<body>
+    <h1>Testing CDN Import</h1>
+    <pre id="output"></pre>
+
+    <script type="module">
+        const output = document.getElementById('output');
+
+        function log(msg) {
+            output.textContent += msg + '\n';
+            console.log(msg);
+        }
+
+        async function testImport() {
+            try {
+                log('Loading @toon-format/toon from CDN...');
+                const toonModule = await import('https://cdn.jsdelivr.net/npm/@toon-format/toon@latest/dist/index.js');
+
+                log('✓ Module loaded successfully!');
+                log('Available exports: ' + Object.keys(toonModule).join(', '));
+
+                if (toonModule.encode) {
+                    log('✓ encode function found');
+
+                    // Test encoding
+                    const testData = { name: "Alice", age: 30 };
+                    const encoded = toonModule.encode(testData, { delimiter: '|' });
+                    log('✓ Encode test:');
+                    log(encoded);
+                }
+
+                if (toonModule.decode) {
+                    log('✓ decode function found');
+
+                    // Test decoding
+                    const toon = 'name: Alice\nage: 30';
+                    const decoded = toonModule.decode(toon);
+                    log('✓ Decode test:');
+                    log(JSON.stringify(decoded, null, 2));
+                }
+
+            } catch (error) {
+                log('✗ Error: ' + error.message);
+                log('Stack: ' + error.stack);
+            }
+        }
+
+        testImport();
+    </script>
+</body>
+</html>

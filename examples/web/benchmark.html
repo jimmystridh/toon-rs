@@ -501,7 +501,7 @@
 
             showStatus('Loading JavaScript module from npm...', 'info');
             try {
-                jsModule = await import('https://cdn.jsdelivr.net/npm/@toon-format/toon@latest/dist/index.mjs');
+                jsModule = await import('https://cdn.jsdelivr.net/npm/@toon-format/toon@latest/dist/index.js');
                 showStatus('Both modules loaded successfully!', 'success');
             } catch (error) {
                 showStatus(`Error loading JS module: ${error.message}. Using WASM only.`, 'error');
