@@ -1,5 +1,5 @@
 [workspace]
-members = ["crates/toon", "crates/toon-cli"]
+members = ["crates/toon", "crates/toon-cli", "crates/toon-wasm"]
 exclude = ["fuzz"]
 resolver = "2"
 

@@ -1,0 +1,663 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>TOON Playground · JSON ↔︎ TOON</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;600&family=Inter:wght@400;500;600&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+    <style>
+        :root {
+            --bg: #050913;
+            --bg-soft: rgba(9, 14, 32, 0.92);
+            --panel: rgba(6, 11, 25, 0.92);
+            --border: rgba(255, 255, 255, 0.08);
+            --text: #f8fbff;
+            --muted: rgba(248, 251, 255, 0.72);
+            --accent: #5efce8;
+            --accent-strong: #508bff;
+            --surface-glow: linear-gradient(135deg, rgba(80, 139, 255, 0.5), rgba(94, 252, 232, 0.25));
+            font-family: 'Inter', 'Space Grotesk', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+        }
+
+        * {
+            box-sizing: border-box;
+            margin: 0;
+        }
+
+        body {
+            min-height: 100vh;
+            padding: 48px 16px 64px;
+            background: radial-gradient(circle at top, #101c3f, #050913 55%);
+            color: var(--text);
+            position: relative;
+            overflow-x: hidden;
+        }
+
+        body::before,
+        body::after {
+            content: '';
+            position: absolute;
+            width: 360px;
+            height: 360px;
+            background: radial-gradient(circle, rgba(94, 252, 232, 0.2), transparent 65%);
+            filter: blur(25px);
+            z-index: -2;
+        }
+
+        body::before {
+            top: -120px;
+            right: 10%;
+        }
+
+        body::after {
+            bottom: -120px;
+            left: 5%;
+            background: radial-gradient(circle, rgba(80, 139, 255, 0.28), transparent 65%);
+        }
+
+        .page {
+            max-width: 1200px;
+            margin: 0 auto;
+            display: flex;
+            flex-direction: column;
+            gap: 28px;
+        }
+
+        .glass {
+            background: var(--bg-soft);
+            border: 1px solid var(--border);
+            border-radius: 20px;
+            backdrop-filter: blur(16px);
+            box-shadow: 0 16px 40px rgba(0, 0, 0, 0.35);
+        }
+
+        header.hero {
+            padding: 32px 40px;
+            display: flex;
+            flex-direction: column;
+            gap: 12px;
+        }
+
+        .hero-eyebrow {
+            font-size: 0.82rem;
+            letter-spacing: 0.18em;
+            text-transform: uppercase;
+            color: var(--muted);
+        }
+
+        h1 {
+            font-family: 'Space Grotesk', 'Inter', sans-serif;
+            font-size: clamp(2rem, 4vw, 3rem);
+            line-height: 1.1;
+        }
+
+        .hero p {
+            color: var(--muted);
+            max-width: 640px;
+            font-size: 1.02rem;
+        }
+
+        .badge-row {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 8px;
+            margin-top: 8px;
+        }
+
+        .badge {
+            padding: 8px 14px;
+            border-radius: 999px;
+            background: rgba(255, 255, 255, 0.05);
+            border: 1px solid rgba(255, 255, 255, 0.08);
+            font-size: 0.88rem;
+        }
+
+        .workbench {
+            padding: 28px 30px;
+            display: flex;
+            flex-direction: column;
+            gap: 20px;
+        }
+
+        .workspace-head {
+            display: flex;
+            flex-wrap: wrap;
+            justify-content: space-between;
+            gap: 12px;
+            align-items: baseline;
+        }
+
+        .workspace-head h2 {
+            font-size: 1rem;
+            letter-spacing: 0.2em;
+            text-transform: uppercase;
+            color: rgba(248, 251, 255, 0.65);
+        }
+
+        .workspace-head p {
+            color: var(--muted);
+            font-size: 0.95rem;
+        }
+
+        .example-card {
+            display: flex;
+            flex-direction: column;
+            gap: 12px;
+            padding: 16px 18px;
+            border-radius: 18px;
+            border: 1px dashed rgba(255, 255, 255, 0.25);
+            background: rgba(255, 255, 255, 0.03);
+        }
+
+        .example-card-head {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 10px;
+            align-items: center;
+        }
+
+        .example-tag {
+            font-size: 0.75rem;
+            text-transform: uppercase;
+            letter-spacing: 0.25em;
+            color: var(--accent);
+        }
+
+        .example-card-note {
+            color: var(--muted);
+            font-size: 0.9rem;
+        }
+
+        .example-tray {
+            display: flex;
+            gap: 10px;
+            flex-wrap: wrap;
+        }
+
+        .example-btn {
+            background: rgba(255, 255, 255, 0.06);
+            border: 1px solid rgba(255, 255, 255, 0.18);
+            color: var(--text);
+            padding: 10px 16px;
+            border-radius: 14px;
+            font-size: 0.9rem;
+            cursor: pointer;
+            transition: all 0.2s ease;
+            display: flex;
+            flex-direction: column;
+            gap: 2px;
+            min-width: 150px;
+        }
+
+        .example-btn-label {
+            font-size: 0.7rem;
+            text-transform: uppercase;
+            letter-spacing: 0.25em;
+            color: rgba(248, 251, 255, 0.6);
+        }
+
+        .example-btn-title {
+            font-size: 0.95rem;
+        }
+
+        .example-btn:hover {
+            background: rgba(94, 252, 232, 0.15);
+            border-color: rgba(94, 252, 232, 0.45);
+            transform: translateY(-1px);
+        }
+
+        .workspace-grid {
+            display: grid;
+            grid-template-columns: minmax(0, 1fr) minmax(220px, 0.75fr) minmax(0, 1fr);
+            gap: 18px;
+            align-items: stretch;
+        }
+
+        .panel {
+            display: flex;
+            flex-direction: column;
+            padding: 22px;
+            min-height: 480px;
+            background: var(--panel);
+            border: 1px solid var(--border);
+            border-radius: 18px;
+        }
+
+        .panel h3 {
+            font-size: 0.95rem;
+            letter-spacing: 0.08em;
+            text-transform: uppercase;
+            color: rgba(248, 251, 255, 0.6);
+            margin-bottom: 12px;
+        }
+
+        textarea {
+            flex: 1;
+            width: 100%;
+            border-radius: 14px;
+            border: 1px solid rgba(255, 255, 255, 0.08);
+            background: rgba(2, 6, 23, 0.55);
+            color: var(--text);
+            padding: 16px;
+            font-family: 'JetBrains Mono', 'SFMono-Regular', 'Consolas', monospace;
+            font-size: 0.92rem;
+            line-height: 1.45;
+            resize: none;
+            transition: border 0.2s, box-shadow 0.2s;
+        }
+
+        textarea:focus {
+            outline: none;
+            border-color: rgba(94, 252, 232, 0.65);
+            box-shadow: 0 0 0 3px rgba(94, 252, 232, 0.18);
+        }
+
+        .status-slot {
+            min-height: 44px;
+            margin-top: 12px;
+        }
+
+        .flash {
+            padding: 12px 14px;
+            border-radius: 12px;
+            font-size: 0.92rem;
+            border: 1px solid;
+        }
+
+        .flash.error {
+            border-color: rgba(255, 102, 153, 0.6);
+            background: rgba(255, 102, 153, 0.08);
+            color: #ff9ab6;
+        }
+
+        .flash.success {
+            border-color: rgba(130, 255, 196, 0.6);
+            background: rgba(130, 255, 196, 0.08);
+            color: #aeffd7;
+        }
+
+        .control-column {
+            display: flex;
+            flex-direction: column;
+            gap: 16px;
+            padding: 22px;
+            background: var(--panel);
+            border: 1px solid var(--border);
+            border-radius: 18px;
+            align-items: center;
+        }
+
+        .button-stack {
+            display: flex;
+            flex-direction: column;
+            gap: 12px;
+            width: 100%;
+        }
+
+        button {
+            border: none;
+            border-radius: 14px;
+            padding: 14px 18px;
+            font-size: 1rem;
+            font-weight: 600;
+            cursor: pointer;
+            transition: transform 0.18s ease, box-shadow 0.18s ease, background 0.18s;
+        }
+
+        button.primary {
+            background: var(--surface-glow);
+            color: #041126;
+            box-shadow: 0 12px 24px rgba(80, 139, 255, 0.28);
+        }
+
+        button.primary:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 16px 32px rgba(80, 139, 255, 0.35);
+        }
+
+        button.secondary {
+            background: rgba(255, 255, 255, 0.08);
+            color: var(--text);
+        }
+
+        button.secondary:hover {
+            background: rgba(255, 255, 255, 0.16);
+            transform: translateY(-1px);
+        }
+
+        button:disabled {
+            opacity: 0.5;
+            cursor: not-allowed;
+            transform: none;
+            box-shadow: none;
+        }
+
+        .options {
+            width: 100%;
+            border-radius: 16px;
+            padding: 18px;
+            background: rgba(255, 255, 255, 0.03);
+            border: 1px solid rgba(255, 255, 255, 0.05);
+            display: flex;
+            flex-direction: column;
+            gap: 12px;
+        }
+
+        .options h4 {
+            font-size: 0.85rem;
+            text-transform: uppercase;
+            letter-spacing: 0.12em;
+            color: var(--muted);
+        }
+
+        .option-item {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            color: var(--text);
+        }
+
+        .option-item input[type="checkbox"] {
+            appearance: none;
+            width: 20px;
+            height: 20px;
+            border-radius: 7px;
+            border: 1px solid rgba(255, 255, 255, 0.4);
+            position: relative;
+            cursor: pointer;
+        }
+
+        .option-item input[type="checkbox"]:checked {
+            border-color: transparent;
+            background: var(--surface-glow);
+        }
+
+        .option-item input[type="checkbox"]:checked::after {
+            content: '✓';
+            position: absolute;
+            inset: 0;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 0.8rem;
+            color: #010511;
+        }
+
+        .option-item label {
+            cursor: pointer;
+            color: var(--muted);
+            font-size: 0.92rem;
+        }
+
+        .footer-card {
+            padding: 24px 28px;
+            display: flex;
+            flex-direction: column;
+            gap: 8px;
+        }
+
+        .footer-card a {
+            color: var(--accent);
+            text-decoration: none;
+            font-weight: 600;
+        }
+
+        .subtext {
+            color: var(--muted);
+            font-size: 0.94rem;
+        }
+
+        @media (max-width: 1100px) {
+            .workspace-grid {
+                grid-template-columns: 1fr;
+            }
+
+            .panel,
+            .control-column {
+                min-height: unset;
+            }
+
+            .control-column {
+                align-items: stretch;
+            }
+
+            .button-stack {
+                flex-direction: row;
+                flex-wrap: wrap;
+            }
+
+            .button-stack button {
+                flex: 1 1 45%;
+            }
+        }
+
+        @media (max-width: 640px) {
+            header.hero,
+            .workbench,
+            .footer-card {
+                padding: 24px;
+            }
+
+            .button-stack button {
+                flex: 1 1 100%;
+            }
+        }
+    </style>
+</head>
+<body>
+    <main class="page">
+        <header class="hero glass">
+            <div class="hero-eyebrow">WebAssembly · Zero-copy · Spec compliant</div>
+            <h1>TOON Playground</h1>
+            <p>Flip JSON ↔︎ TOON without leaving the browser. Centered controls keep conversions one click away while quick examples show off tabular + nested payloads.</p>
+            <div class="badge-row">
+                <span class="badge">Compact grid layout</span>
+                <span class="badge">WASM-accelerated</span>
+                <span class="badge">Strict diagnostics</span>
+                <span class="badge">Pipe or minimal delimiters</span>
+            </div>
+        </header>
+
+        <section class="workbench glass">
+            <div class="workspace-head">
+                <h2>Live converter</h2>
+                <p>Paste JSON, load a fixture, or drop TOON text and round-trip instantly.</p>
+            </div>
+
+            <div class="example-card">
+                <div class="example-card-head">
+                    <span class="example-tag">Examples</span>
+                    <p class="example-card-note">Click to prefill the JSON editor with a curated sample.</p>
+                </div>
+                <div class="example-tray">
+                    <button class="example-btn" data-example="simple">
+                        <span class="example-btn-label">Example</span>
+                        <span class="example-btn-title">Simple object</span>
+                    </button>
+                    <button class="example-btn" data-example="nested">
+                        <span class="example-btn-label">Example</span>
+                        <span class="example-btn-title">Nested payload</span>
+                    </button>
+                    <button class="example-btn" data-example="array">
+                        <span class="example-btn-label">Example</span>
+                        <span class="example-btn-title">Array mix</span>
+                    </button>
+                    <button class="example-btn" data-example="tabular">
+                        <span class="example-btn-label">Example</span>
+                        <span class="example-btn-title">Tabular dataset</span>
+                    </button>
+                </div>
+            </div>
+
+            <div class="workspace-grid">
+                <div class="panel">
+                    <h3>JSON input</h3>
+                    <textarea id="jsonInput" placeholder='{
+  "name": "Ada",
+  "stack": ["rust", "wasm"],
+  "active": true
+}'></textarea>
+                    <div class="status-slot" id="jsonError"></div>
+                </div>
+
+                <div class="control-column">
+                    <div class="button-stack">
+                        <button class="primary" id="jsonToToonBtn" title="Convert JSON to TOON">JSON → TOON</button>
+                        <button class="primary" id="toonToJsonBtn" title="Convert TOON to JSON">TOON → JSON</button>
+                        <button class="secondary" id="clearBtn">Clear playground</button>
+                    </div>
+                    <div class="options">
+                        <h4>Encoder & parser options</h4>
+                        <div class="option-item">
+                            <input type="checkbox" id="usePipeDelimiter" checked>
+                            <label for="usePipeDelimiter">Use pipe delimiter (|) for aligned tabular blocks</label>
+                        </div>
+                        <div class="option-item">
+                            <input type="checkbox" id="strictMode">
+                            <label for="strictMode">Strict mode · enforce spec and emit detailed errors</label>
+                        </div>
+                        <div class="option-item">
+                            <input type="checkbox" id="prettyJson" checked>
+                            <label for="prettyJson">Pretty JSON · keep decoded output indented</label>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="panel">
+                    <h3>TOON output</h3>
+                    <textarea id="toonOutput" placeholder="TOON payload renders here…"></textarea>
+                    <div class="status-slot" id="toonError"></div>
+                </div>
+            </div>
+        </section>
+
+        <section class="footer-card glass">
+            <p class="subtext">Need more firepower? Run <code>cargo run -p toon-cli -- encode examples/request.json</code> locally or explore <code>crates/toon</code> for strict conformance tests.</p>
+            <p class="subtext">Contribute ideas or report issues in the <a href="https://github.com/jimmystridh/toon-rs" target="_blank" rel="noreferrer noopener">toon-rs repository →</a></p>
+        </section>
+    </main>
+
+    <script type="module">
+        import init, { json_to_toon, toon_to_json } from './pkg/toon_wasm.js';
+
+        const examples = {
+            simple: {
+                name: "Alice",
+                age: 30,
+                active: true
+            },
+            nested: {
+                user: {
+                    name: "Bob",
+                    email: "bob@example.com",
+                    address: {
+                        city: "New York",
+                        zip: "10001"
+                    }
+                }
+            },
+            array: {
+                colors: ["red", "green", "blue"],
+                numbers: [1, 2, 3, 4, 5]
+            },
+            tabular: {
+                users: [
+                    { id: 1, name: "Alice", age: 30, active: true },
+                    { id: 2, name: "Bob", age: 25, active: false },
+                    { id: 3, name: "Charlie", age: 35, active: true }
+                ]
+            }
+        };
+
+        async function main() {
+            await init();
+
+            const jsonInput = document.getElementById('jsonInput');
+            const toonOutput = document.getElementById('toonOutput');
+            const jsonError = document.getElementById('jsonError');
+            const toonError = document.getElementById('toonError');
+            const jsonToToonBtn = document.getElementById('jsonToToonBtn');
+            const toonToJsonBtn = document.getElementById('toonToJsonBtn');
+            const clearBtn = document.getElementById('clearBtn');
+            const usePipeDelimiter = document.getElementById('usePipeDelimiter');
+            const strictMode = document.getElementById('strictMode');
+            const prettyJson = document.getElementById('prettyJson');
+
+            function showError(element, message) {
+                element.innerHTML = `<div class="flash error">${message}</div>`;
+            }
+
+            function showSuccess(element, message) {
+                element.innerHTML = `<div class="flash success">${message}</div>`;
+            }
+
+            function clearErrors() {
+                jsonError.innerHTML = '';
+                toonError.innerHTML = '';
+            }
+
+            jsonToToonBtn.addEventListener('click', () => {
+                clearErrors();
+                try {
+                    const json = jsonInput.value.trim();
+                    if (!json) {
+                        showError(jsonError, 'Drop in some JSON to begin.');
+                        return;
+                    }
+
+                    const toon = json_to_toon(
+                        json,
+                        usePipeDelimiter.checked,
+                        strictMode.checked
+                    );
+                    toonOutput.value = toon;
+                    showSuccess(toonError, 'Converted to TOON successfully.');
+                    setTimeout(() => clearErrors(), 2200);
+                } catch (error) {
+                    showError(jsonError, error.toString());
+                }
+            });
+
+            toonToJsonBtn.addEventListener('click', () => {
+                clearErrors();
+                try {
+                    const toon = toonOutput.value.trim();
+                    if (!toon) {
+                        showError(toonError, 'Paste a TOON payload to decode.');
+                        return;
+                    }
+
+                    const json = toon_to_json(
+                        toon,
+                        strictMode.checked,
+                        prettyJson.checked
+                    );
+                    jsonInput.value = json;
+                    showSuccess(jsonError, 'Converted to JSON successfully.');
+                    setTimeout(() => clearErrors(), 2200);
+                } catch (error) {
+                    showError(toonError, error.toString());
+                }
+            });
+
+            clearBtn.addEventListener('click', () => {
+                jsonInput.value = '';
+                toonOutput.value = '';
+                clearErrors();
+            });
+
+            document.querySelectorAll('.example-btn').forEach(btn => {
+                btn.addEventListener('click', () => {
+                    const example = btn.dataset.example;
+                    jsonInput.value = JSON.stringify(examples[example], null, 2);
+                    clearErrors();
+                });
+            });
+        }
+
+        main().catch(console.error);
+    </script>
+</body>
+</html>
