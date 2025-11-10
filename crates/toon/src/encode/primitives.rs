@@ -64,8 +64,9 @@ pub fn needs_quotes(s: &str, delim: Delimiter) -> bool {
     false
 }
 
-pub fn escape_and_quote(s: &str) -> String {
-    let mut out = String::with_capacity(s.len() + 2);
+pub fn escape_and_quote_into(out: &mut String, s: &str) {
+    out.clear();
+    out.reserve(s.len() + 2);
     out.push('"');
     for ch in s.chars() {
         match ch {
@@ -94,6 +95,11 @@ pub fn escape_and_quote(s: &str) -> String {
         }
     }
     out.push('"');
+}
+
+pub fn escape_and_quote(s: &str) -> String {
+    let mut out = String::with_capacity(s.len() + 2);
+    escape_and_quote_into(&mut out, s);
     out
 }
 

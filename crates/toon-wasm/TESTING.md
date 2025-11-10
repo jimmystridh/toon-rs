@@ -125,6 +125,13 @@ const jsonBack = toon_to_json(toonFromJson, false, false);
   `wasm-pack build -- --features size_opt`) to restore `wee_alloc` when binary
   size matters more than raw speed.
 
+`value_to_toon` walks the JavaScript object directly, so unsupported values
+(functions, symbols, DOM nodes, etc.) will return an error before encoding. The
+10 MB guard is enforced on the emitted TOON payload, which closely tracks the
+input size for typical documents. `toon_to_value` feeds the TOON parser directly
+into JS objects/arrays as it reads, removing the previous intermediate `Value`
+allocation step.
+
 ### Criterion Benchmarks
 
 For Rust-side benchmarks, create `benches/conversion.rs`:

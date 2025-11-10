@@ -244,6 +244,12 @@ const json = toon_to_json('name: Alice\nage: 30', false, true);
 > Default builds now prioritize runtime speed. Enable the `size_opt` feature
 > when running `wasm-pack` if you still want to force the compact `wee_alloc`
 > allocator: `wasm-pack build -- --features size_opt`.
+> `value_to_toon` streams the provided object directly from JavaScript—no
+> intermediate `JSON.stringify` or extra copies—so keep inputs JSON-compatible
+> (functions, symbols, etc. raise an error). It enforces the same 10 MB guard by
+> aborting if the produced TOON payload would exceed the limit. `toon_to_value`
+> now walks the TOON parser directly into JS objects/arrays, so decoding never
+> materializes an intermediate `serde_json::Value` either.
 
 See [examples/web/README.md](examples/web/README.md) for details.
 

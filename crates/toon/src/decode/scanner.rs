@@ -114,66 +114,87 @@ fn find_unquoted_colon(s: &str) -> Option<usize> {
 }
 
 pub fn scan<'a>(input: &'a str) -> Vec<ParsedLine<'a>> {
-    let mut out = Vec::new();
-    for raw in input.split_inclusive('\n') {
-        let line = raw.trim_end_matches('\n');
-        let indent = leading_spaces(line);
-        let body = &line[indent..];
-        if body.is_empty() {
-            out.push(ParsedLine {
-                indent,
-                kind: LineKind::Blank,
-            });
-            continue;
+    iter(input).collect()
+}
+
+pub struct LineIter<'a> {
+    rest: &'a str,
+}
+
+pub fn iter<'a>(input: &'a str) -> LineIter<'a> {
+    LineIter { rest: input }
+}
+
+impl<'a> Iterator for LineIter<'a> {
+    type Item = ParsedLine<'a>;
+
+    fn next(&mut self) -> Option<Self::Item> {
+        if self.rest.is_empty() {
+            return None;
         }
-        if let Some(rest) = body.strip_prefix("- ") {
-            out.push(ParsedLine {
-                indent,
-                kind: LineKind::ListItem { value: Some(rest) },
-            });
-            continue;
-        }
-        if body == "-" {
-            out.push(ParsedLine {
-                indent,
-                kind: LineKind::ListItem { value: None },
-            });
-            continue;
-        }
-        if body.starts_with('@') {
-            // Table header line; treat entire line as scalar
-            out.push(ParsedLine {
-                indent,
-                kind: LineKind::Scalar(body),
-            });
-            continue;
-        }
-        if let Some(idx) = find_unquoted_colon(body) {
-            let (k, v) = body.split_at(idx);
-            let after = &v[1..];
-            let after_trimmed = trim_ascii(after);
-            if after_trimmed.is_empty() {
-                out.push(ParsedLine {
-                    indent,
-                    kind: LineKind::KeyOnly { key: k },
-                });
-            } else {
-                out.push(ParsedLine {
-                    indent,
-                    kind: LineKind::KeyValue {
-                        key: k,
-                        value: trim_ascii_start(after),
-                    },
-                });
+        let (raw, remaining) = match self.rest.find('\n') {
+            Some(pos) => self.rest.split_at(pos + 1),
+            None => {
+                let line = self.rest;
+                self.rest = "";
+                return Some(parse_line(line));
             }
-            continue;
-        }
-        out.push(ParsedLine {
+        };
+        self.rest = remaining;
+        Some(parse_line(raw.trim_end_matches('\n')))
+    }
+}
+
+fn parse_line(line: &str) -> ParsedLine<'_> {
+    let indent = leading_spaces(line);
+    let body = &line[indent..];
+    if body.is_empty() {
+        return ParsedLine {
+            indent,
+            kind: LineKind::Blank,
+        };
+    }
+    if let Some(rest) = body.strip_prefix("- ") {
+        return ParsedLine {
+            indent,
+            kind: LineKind::ListItem { value: Some(rest) },
+        };
+    }
+    if body == "-" {
+        return ParsedLine {
+            indent,
+            kind: LineKind::ListItem { value: None },
+        };
+    }
+    if body.starts_with('@') {
+        return ParsedLine {
             indent,
             kind: LineKind::Scalar(body),
-        });
+        };
     }
-    out
+    if let Some(idx) = find_unquoted_colon(body) {
+        let (k, v) = body.split_at(idx);
+        let after = &v[1..];
+        let after_trimmed = trim_ascii(after);
+        if after_trimmed.is_empty() {
+            return ParsedLine {
+                indent,
+                kind: LineKind::KeyOnly { key: k },
+            };
+        } else {
+            return ParsedLine {
+                indent,
+                kind: LineKind::KeyValue {
+                    key: k,
+                    value: trim_ascii_start(after),
+                },
+            };
+        }
+    }
+    ParsedLine {
+        indent,
+        kind: LineKind::Scalar(body),
+    }
 }
 
 fn trim_ascii(s: &str) -> &str {

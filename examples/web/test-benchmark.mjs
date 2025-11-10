@@ -59,7 +59,7 @@ for (const elementId of requiredElements) {
 
 // Test 3: Check for required imports
 console.log('\n✓ Test 3: Checking JavaScript imports...');
-if (benchmarkHtml.includes("import init, { json_to_toon, toon_to_json } from './pkg/toon_wasm.js'")) {
+if (benchmarkHtml.includes("import init, {\n            json_to_toon,\n            value_to_toon,\n            toon_to_json,\n            toon_to_value,\n        } from './pkg/toon_wasm.js'")) {
   console.log('  ✓ WASM module import found');
 } else {
   console.error('  ✗ WASM module import missing');
@@ -105,7 +105,9 @@ const wasmJs = readFileSync(join(__dirname, 'pkg/toon_wasm.js'), 'utf-8');
 
 const requiredExports = [
   'json_to_toon',
-  'toon_to_json'
+  'value_to_toon',
+  'toon_to_json',
+  'toon_to_value'
 ];
 
 for (const exportName of requiredExports) {

@@ -1,7 +1,7 @@
 use crate::{
     Result,
     encode::{primitives, writer::LineWriter},
-    options::Options,
+    options::{Delimiter, Options},
 };
 
 #[cfg(feature = "serde")]
@@ -17,10 +17,7 @@ pub fn encode_value(
         Value::Null => w.line(indent, primitives::format_null()),
         Value::Bool(b) => w.line(indent, primitives::format_bool(*b)),
         Value::Number(n) => w.line(indent, &n.to_string()),
-        Value::String(s) => {
-            let fs = primitives::format_string(s, opts.delimiter);
-            w.line(indent, &fs)
-        }
+        Value::String(s) => w.line_formatted(indent, s, opts.delimiter),
         Value::Array(items) => {
             if let Some(keys) = is_tabular_array(items) {
                 // Emit header and rows using active delimiter
@@ -31,24 +28,18 @@ pub fn encode_value(
                     .collect();
                 let header = join_with_delim(&key_cells, dch);
                 w.line(indent, &format!("@{} {}", dch, header));
+                let mut cells: Vec<String> = vec![String::new(); keys.len()];
+                let mut row_buf = String::new();
                 for item in items {
                     let obj = item
                         .as_object()
                         .expect("tabular detection guaranteed object");
-                    let mut cells: Vec<String> = Vec::with_capacity(keys.len());
-                    for k in &keys {
+                    for (idx, k) in keys.iter().enumerate() {
                         let v = obj.get(k).unwrap();
-                        let cell = match v {
-                            Value::Null => primitives::format_null().to_string(),
-                            Value::Bool(b) => primitives::format_bool(*b).to_string(),
-                            Value::Number(n) => n.to_string(),
-                            Value::String(s) => primitives::format_string(s, opts.delimiter),
-                            _ => "null".to_string(),
-                        };
-                        cells.push(cell);
+                        format_tabular_cell(&mut cells[idx], v, opts.delimiter);
                     }
-                    let row = join_with_delim(&cells, dch);
-                    w.line_list_item(indent, &row);
+                    join_cells_into(&cells, dch, &mut row_buf);
+                    w.line_list_item(indent, &row_buf);
                 }
             } else {
                 // Fallback to list form
@@ -61,10 +52,9 @@ pub fn encode_value(
                             Value::Null => w.line_list_item(indent, primitives::format_null()),
                             Value::Bool(b) => w.line_list_item(indent, primitives::format_bool(*b)),
                             Value::Number(n) => w.line_list_item(indent, &n.to_string()),
-                            Value::String(s) => w.line_list_item(
-                                indent,
-                                &primitives::format_string(s, opts.delimiter),
-                            ),
+                            Value::String(s) => {
+                                w.line_list_item_formatted(indent, s, opts.delimiter)
+                            }
                             Value::Array(_) | Value::Object(_) => {
                                 // Start list item then nested block
                                 w.line(indent, "-");
@@ -81,16 +71,26 @@ pub fn encode_value(
                 w.line(indent, "{0}:");
             } else {
                 for (k, v) in obj {
-                    let key = primitives::format_string(k, opts.delimiter);
                     match v {
-                        Value::Null => w.line_kv(indent, &key, primitives::format_null()),
-                        Value::Bool(b) => w.line_kv(indent, &key, primitives::format_bool(*b)),
-                        Value::Number(n) => w.line_kv(indent, &key, &n.to_string()),
-                        Value::String(s) => {
-                            w.line_kv(indent, &key, &primitives::format_string(s, opts.delimiter))
+                        Value::Null => w.line_kv_key_formatted_raw(
+                            indent,
+                            k,
+                            primitives::format_null(),
+                            opts.delimiter,
+                        ),
+                        Value::Bool(b) => w.line_kv_key_formatted_raw(
+                            indent,
+                            k,
+                            primitives::format_bool(*b),
+                            opts.delimiter,
+                        ),
+                        Value::Number(n) => {
+                            let num = n.to_string();
+                            w.line_kv_key_formatted_raw(indent, k, &num, opts.delimiter);
                         }
+                        Value::String(s) => w.line_kv_formatted(indent, k, s, opts.delimiter),
                         Value::Array(_) | Value::Object(_) => {
-                            w.line_key_only(indent, &key);
+                            w.line_key_only_formatted(indent, k, opts.delimiter);
                             encode_value(v, w, opts, indent + 2)?;
                         }
                     }
@@ -143,5 +143,37 @@ fn join_with_delim(cells: &[String], dch: char) -> String {
         cells.join("\t")
     } else {
         cells.join(&format!("{} ", dch))
+    }
+}
+
+fn join_cells_into(cells: &[String], dch: char, out: &mut String) {
+    out.clear();
+    for (idx, cell) in cells.iter().enumerate() {
+        if idx > 0 {
+            if dch == '\t' {
+                out.push('\t');
+            } else {
+                out.push(dch);
+                out.push(' ');
+            }
+        }
+        out.push_str(cell);
+    }
+}
+
+fn format_tabular_cell(buf: &mut String, value: &Value, delim: Delimiter) {
+    buf.clear();
+    match value {
+        Value::Null => buf.push_str(primitives::format_null()),
+        Value::Bool(b) => buf.push_str(primitives::format_bool(*b)),
+        Value::Number(n) => buf.push_str(&n.to_string()),
+        Value::String(s) => {
+            if primitives::needs_quotes(s, delim) {
+                primitives::escape_and_quote_into(buf, s);
+            } else {
+                buf.push_str(s);
+            }
+        }
+        _ => buf.push_str(primitives::format_null()),
     }
 }

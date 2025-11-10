@@ -1,7 +1,16 @@
-use serde_json::Value;
-use serde_wasm_bindgen::{from_value as from_js_value, to_value as to_js_value};
-use toon::{Delimiter, Options};
+use serde_json::Value as JsonValue;
+use toon::{
+    Delimiter, Options,
+    decode::{scanner, validation},
+};
 use wasm_bindgen::prelude::*;
+
+mod bridge;
+mod js_encode;
+mod js_parser;
+use bridge::set_encoder;
+use js_encode::encode_js_value_to_string;
+use js_parser::{parse_input_to_js, parse_lines_to_js};
 
 /// Use wee_alloc as the global allocator only when the optional feature is
 /// enabled. The default build now favors runtime performance.
@@ -41,74 +50,6 @@ fn options_for_decode(strict: bool) -> Options {
     }
 }
 
-fn js_error(err: impl core::fmt::Display) -> JsValue {
-    JsValue::from_str(&err.to_string())
-}
-
-fn estimated_value_size(value: &Value) -> usize {
-    match value {
-        Value::Null => 4,
-        Value::Bool(_) => 5,
-        Value::Number(n) => estimate_number_len(n),
-        Value::String(s) => s.len(),
-        Value::Array(items) => {
-            // Count brackets plus elements
-            2 + items.iter().map(estimated_value_size).sum::<usize>()
-        }
-        Value::Object(obj) => {
-            // Account for braces plus keys and values
-            2 + obj
-                .iter()
-                .map(|(k, v)| k.len() + estimated_value_size(v))
-                .sum::<usize>()
-        }
-    }
-}
-
-fn estimate_number_len(num: &serde_json::Number) -> usize {
-    if let Some(i) = num.as_i64() {
-        digits_i64(i)
-    } else if let Some(u) = num.as_u64() {
-        digits_u64(u)
-    } else if let Some(f) = num.as_f64() {
-        // This only happens for non-integer numbers; we fall back to a string
-        // allocation, but the size check still avoids creating a large JSON
-        // payload eagerly.
-        f.to_string().len()
-    } else {
-        0
-    }
-}
-
-fn digits_i64(value: i64) -> usize {
-    if value == 0 {
-        return 1;
-    }
-    let mut len = 0;
-    let mut v = value as i128;
-    if v < 0 {
-        len += 1; // minus sign
-        v = -v;
-    }
-    while v > 0 {
-        len += 1;
-        v /= 10;
-    }
-    len
-}
-
-fn digits_u64(mut value: u64) -> usize {
-    if value == 0 {
-        return 1;
-    }
-    let mut len = 0;
-    while value > 0 {
-        len += 1;
-        value /= 10;
-    }
-    len
-}
-
 /// Initialize panic hook for better error messages in browser console.
 /// Call this once when the module is loaded for improved debugging.
 #[wasm_bindgen(start)]
@@ -128,7 +69,7 @@ pub fn json_to_toon(
     }
 
     // Parse JSON
-    let value: Value =
+    let value: JsonValue =
         serde_json::from_str(json_str).map_err(|e| format!("Invalid JSON: {}", e))?;
 
     // Configure options
@@ -148,7 +89,7 @@ pub fn toon_to_json(toon_str: &str, strict: bool, pretty: bool) -> Result<String
     let options = options_for_decode(strict);
 
     // Decode from TOON
-    let value: Value = toon::decode_from_str(toon_str, &options)
+    let value: JsonValue = toon::decode_from_str(toon_str, &options)
         .map_err(|e| format!("TOON decoding error: {}", e))?;
 
     // Convert to JSON string
@@ -167,12 +108,12 @@ pub fn value_to_toon(
     use_pipe_delimiter: bool,
     strict: bool,
 ) -> Result<String, JsValue> {
-    let value: Value = from_js_value(value).map_err(js_error)?;
-    if estimated_value_size(&value) > MAX_INPUT_SIZE {
+    let options = options_for_encode(use_pipe_delimiter, strict);
+    let out = encode_js_value_to_string(&value, &options)?;
+    if out.len() > MAX_INPUT_SIZE {
         return Err(limit_error_js());
     }
-    let options = options_for_encode(use_pipe_delimiter, strict);
-    toon::encode_to_string(&value, &options).map_err(js_error)
+    Ok(out)
 }
 
 /// Decode TOON into a JavaScript value so callers can defer stringifying to the
@@ -182,9 +123,18 @@ pub fn toon_to_value(toon_str: &str, strict: bool) -> Result<JsValue, JsValue> {
     if toon_str.len() > MAX_INPUT_SIZE {
         return Err(limit_error_js());
     }
-    let options = options_for_decode(strict);
-    let value: Value = toon::decode_from_str(toon_str, &options).map_err(js_error)?;
-    to_js_value(&value).map_err(js_error)
+    if strict {
+        let lines = scanner::scan(toon_str);
+        if let Err(e) = validation::validate_indentation(&lines) {
+            return Err(JsValue::from_str(&format!(
+                "Strict indentation error at line {}: {}",
+                e.line, e.message
+            )));
+        }
+        parse_lines_to_js(lines, true)
+    } else {
+        parse_input_to_js(toon_str, false)
+    }
 }
 
 /// Get the version of the TOON library

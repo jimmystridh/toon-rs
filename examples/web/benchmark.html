@@ -442,7 +442,12 @@
     </main>
 
     <script type="module">
-        import init, { json_to_toon, toon_to_json } from './pkg/toon_wasm.js';
+        import init, {
+            json_to_toon,
+            value_to_toon,
+            toon_to_json,
+            toon_to_value,
+        } from './pkg/toon_wasm.js';
 
         // Test data generators
         const testData = {
@@ -535,7 +540,7 @@
         async function loadModules() {
             showStatus('Loading WASM module...', 'info');
             await init();
-            wasmModule = { json_to_toon, toon_to_json };
+            wasmModule = { json_to_toon, value_to_toon, toon_to_json, toon_to_value };
 
             showStatus('Loading JavaScript module from npm...', 'info');
             try {
@@ -587,7 +592,7 @@
 
                 const wasmEncodeTime = benchmark(() => {
                     try {
-                        wasmModule.json_to_toon(jsonStr, true, false);
+                        wasmModule.value_to_toon(test.data, true, false);
                     } catch (e) {
                         console.error('WASM encode error:', e);
                     }
@@ -617,11 +622,11 @@
                 // Benchmark decoding (TOON → JSON)
                 showStatus(`Benchmarking ${test.name}: Decoding...`, 'info');
 
-                const toonStr = wasmModule.json_to_toon(jsonStr, true, false);
+                const toonStr = wasmModule.value_to_toon(test.data, true, false);
 
                 const wasmDecodeTime = benchmark(() => {
                     try {
-                        wasmModule.toon_to_json(toonStr, false, false);
+                        wasmModule.toon_to_value(toonStr, false);
                     } catch (e) {
                         console.error('WASM decode error:', e);
                     }
