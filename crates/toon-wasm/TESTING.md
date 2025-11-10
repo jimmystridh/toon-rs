@@ -94,24 +94,36 @@ mod browser_tests {
 Test conversion performance in the browser console:
 
 ```javascript
-// Test JSON to TOON conversion speed
-const largeJson = JSON.stringify({
+// Test conversion speed without extra JSON.parse/stringify work
+const largeValue = {
   users: Array.from({ length: 1000 }, (_, i) => ({
     id: i,
     name: `User ${i}`,
     email: `user${i}@example.com`,
     active: i % 2 === 0
   }))
-});
+};
 
-console.time('json_to_toon');
-const toon = json_to_toon(largeJson, true, false);
-console.timeEnd('json_to_toon');
+console.time('value_to_toon');
+const toon = value_to_toon(largeValue, true, false);
+console.timeEnd('value_to_toon');
 
-console.time('toon_to_json');
-const jsonBack = toon_to_json(toon, false, false);
-console.timeEnd('toon_to_json');
+console.time('toon_to_value');
+const objBack = toon_to_value(toon, false);
+console.timeEnd('toon_to_value');
+
+// JSON helpers remain available if you really need strings:
+const toonFromJson = json_to_toon(JSON.stringify(largeValue), true, false);
+const jsonBack = toon_to_json(toonFromJson, false, false);
 ```
+
+### Allocator profiles
+
+- Default builds prioritize runtime throughput and rely on the platform
+  allocator.
+- Enable the `size_opt` feature (for example,
+  `wasm-pack build -- --features size_opt`) to restore `wee_alloc` when binary
+  size matters more than raw speed.
 
 ### Criterion Benchmarks
 

@@ -1,13 +1,113 @@
 use serde_json::Value;
+use serde_wasm_bindgen::{from_value as from_js_value, to_value as to_js_value};
 use toon::{Delimiter, Options};
 use wasm_bindgen::prelude::*;
 
-/// Use wee_alloc as the global allocator for smaller WASM binary size
+/// Use wee_alloc as the global allocator only when the optional feature is
+/// enabled. The default build now favors runtime performance.
+#[cfg(feature = "wee_alloc")]
 #[global_allocator]
 static ALLOC: wee_alloc::WeeAlloc = wee_alloc::WeeAlloc::INIT;
 
 /// Maximum input size in bytes (10 MB)
 const MAX_INPUT_SIZE: usize = 10 * 1024 * 1024;
+
+fn limit_error_message() -> String {
+    format!(
+        "Input exceeds maximum size limit of {} bytes",
+        MAX_INPUT_SIZE
+    )
+}
+
+fn limit_error_js() -> JsValue {
+    JsValue::from_str(&limit_error_message())
+}
+
+fn options_for_encode(use_pipe_delimiter: bool, strict: bool) -> Options {
+    Options {
+        delimiter: if use_pipe_delimiter {
+            Delimiter::Pipe
+        } else {
+            Delimiter::Comma
+        },
+        strict,
+    }
+}
+
+fn options_for_decode(strict: bool) -> Options {
+    Options {
+        delimiter: Delimiter::Comma,
+        strict,
+    }
+}
+
+fn js_error(err: impl core::fmt::Display) -> JsValue {
+    JsValue::from_str(&err.to_string())
+}
+
+fn estimated_value_size(value: &Value) -> usize {
+    match value {
+        Value::Null => 4,
+        Value::Bool(_) => 5,
+        Value::Number(n) => estimate_number_len(n),
+        Value::String(s) => s.len(),
+        Value::Array(items) => {
+            // Count brackets plus elements
+            2 + items.iter().map(estimated_value_size).sum::<usize>()
+        }
+        Value::Object(obj) => {
+            // Account for braces plus keys and values
+            2 + obj
+                .iter()
+                .map(|(k, v)| k.len() + estimated_value_size(v))
+                .sum::<usize>()
+        }
+    }
+}
+
+fn estimate_number_len(num: &serde_json::Number) -> usize {
+    if let Some(i) = num.as_i64() {
+        digits_i64(i)
+    } else if let Some(u) = num.as_u64() {
+        digits_u64(u)
+    } else if let Some(f) = num.as_f64() {
+        // This only happens for non-integer numbers; we fall back to a string
+        // allocation, but the size check still avoids creating a large JSON
+        // payload eagerly.
+        f.to_string().len()
+    } else {
+        0
+    }
+}
+
+fn digits_i64(value: i64) -> usize {
+    if value == 0 {
+        return 1;
+    }
+    let mut len = 0;
+    let mut v = value as i128;
+    if v < 0 {
+        len += 1; // minus sign
+        v = -v;
+    }
+    while v > 0 {
+        len += 1;
+        v /= 10;
+    }
+    len
+}
+
+fn digits_u64(mut value: u64) -> usize {
+    if value == 0 {
+        return 1;
+    }
+    let mut len = 0;
+    while value > 0 {
+        len += 1;
+        value /= 10;
+    }
+    len
+}
 
 /// Initialize panic hook for better error messages in browser console.
 /// Call this once when the module is loaded for improved debugging.
@@ -23,12 +123,8 @@ pub fn json_to_toon(
     use_pipe_delimiter: bool,
     strict: bool,
 ) -> Result<String, String> {
-    // Validate input size
     if json_str.len() > MAX_INPUT_SIZE {
-        return Err(format!(
-            "Input exceeds maximum size limit of {} bytes",
-            MAX_INPUT_SIZE
-        ));
+        return Err(limit_error_message());
     }
 
     // Parse JSON
@@ -36,14 +132,7 @@ pub fn json_to_toon(
         serde_json::from_str(json_str).map_err(|e| format!("Invalid JSON: {}", e))?;
 
     // Configure options
-    let options = Options {
-        delimiter: if use_pipe_delimiter {
-            Delimiter::Pipe
-        } else {
-            Delimiter::Comma
-        },
-        strict,
-    };
+    let options = options_for_encode(use_pipe_delimiter, strict);
 
     // Encode to TOON
     toon::encode_to_string(&value, &options).map_err(|e| format!("TOON encoding error: {}", e))
@@ -52,19 +141,11 @@ pub fn json_to_toon(
 /// Convert TOON string to JSON format
 #[wasm_bindgen]
 pub fn toon_to_json(toon_str: &str, strict: bool, pretty: bool) -> Result<String, String> {
-    // Validate input size
     if toon_str.len() > MAX_INPUT_SIZE {
-        return Err(format!(
-            "Input exceeds maximum size limit of {} bytes",
-            MAX_INPUT_SIZE
-        ));
+        return Err(limit_error_message());
     }
 
-    // Configure options
-    let options = Options {
-        delimiter: Delimiter::Comma, // Delimiter is auto-detected during decode
-        strict,
-    };
+    let options = options_for_decode(strict);
 
     // Decode from TOON
     let value: Value = toon::decode_from_str(toon_str, &options)
@@ -76,6 +157,34 @@ pub fn toon_to_json(toon_str: &str, strict: bool, pretty: bool) -> Result<String
     } else {
         serde_json::to_string(&value).map_err(|e| format!("JSON encoding error: {}", e))
     }
+}
+
+/// Convert an in-memory JavaScript value to TOON without going through
+/// `JSON.stringify` first.
+#[wasm_bindgen]
+pub fn value_to_toon(
+    value: JsValue,
+    use_pipe_delimiter: bool,
+    strict: bool,
+) -> Result<String, JsValue> {
+    let value: Value = from_js_value(value).map_err(js_error)?;
+    if estimated_value_size(&value) > MAX_INPUT_SIZE {
+        return Err(limit_error_js());
+    }
+    let options = options_for_encode(use_pipe_delimiter, strict);
+    toon::encode_to_string(&value, &options).map_err(js_error)
+}
+
+/// Decode TOON into a JavaScript value so callers can defer stringifying to the
+/// host runtime.
+#[wasm_bindgen]
+pub fn toon_to_value(toon_str: &str, strict: bool) -> Result<JsValue, JsValue> {
+    if toon_str.len() > MAX_INPUT_SIZE {
+        return Err(limit_error_js());
+    }
+    let options = options_for_decode(strict);
+    let value: Value = toon::decode_from_str(toon_str, &options).map_err(js_error)?;
+    to_js_value(&value).map_err(js_error)
 }
 
 /// Get the version of the TOON library

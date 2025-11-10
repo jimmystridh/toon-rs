@@ -218,24 +218,32 @@ Then open http://localhost:8000 to try the interactive JSON ↔ TOON converter.
 **JavaScript API:**
 
 ```javascript
-import init, { json_to_toon, toon_to_json } from './pkg/toon_wasm.js';
+import init, {
+  json_to_toon,
+  value_to_toon,
+  toon_to_json,
+  toon_to_value,
+} from './pkg/toon_wasm.js';
 
 await init();
 
-// Convert JSON to TOON
-const toon = json_to_toon(
-  '{"name": "Alice", "age": 30}',
-  true,  // use pipe delimiter
-  false  // strict mode
-);
+// Fast-path: convert an in-memory object without JSON.stringify
+const toonFast = value_to_toon({ name: 'Alice', age: 30 }, true, false);
 
-// Convert TOON to JSON
-const json = toon_to_json(
-  'name: Alice\nage: 30',
-  false, // strict mode
-  true   // pretty format
-);
+// Fallback if you already have a JSON string
+const toonFromJson = json_to_toon('{"name":"Alice"}', false, false);
+
+// Decode straight to a JS object and pretty-print in JS if you need a string
+const obj = toon_to_value('name: Alice\nage: 30', false);
+const pretty = JSON.stringify(obj, null, 2);
+
+// Or keep using the string-based helper for a ready-made JSON string
+const json = toon_to_json('name: Alice\nage: 30', false, true);
 ```
+
+> Default builds now prioritize runtime speed. Enable the `size_opt` feature
+> when running `wasm-pack` if you still want to force the compact `wee_alloc`
+> allocator: `wasm-pack build -- --features size_opt`.
 
 See [examples/web/README.md](examples/web/README.md) for details.
 
