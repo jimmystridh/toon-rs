@@ -8,8 +8,9 @@ fn encode_outputs_lines() -> Result<(), Box<dyn std::error::Error>> {
 
     let s = toon::encode_to_string(&value, &options)?;
     assert!(s.contains("a: 1"));
-    assert!(s.contains("b:"));
-    assert!(s.contains("- true"));
+    // Spec v3.0: inline primitive arrays use key[N]: format
+    assert!(s.contains("b[2]"));
+    assert!(s.contains("true"));
     Ok(())
 }
 
@@ -189,7 +190,9 @@ fn roundtrip_tabular_header_with_unicode_whitespace() -> Result<(), Box<dyn std:
     let options = toon::Options::default();
 
     let encoded = toon::encode_to_string(&original, &options)?;
+    eprintln!("Encoded: {:?}", encoded);
     let decoded: serde_json::Value = toon::decode_from_str(&encoded, &options)?;
+    eprintln!("Decoded: {:?}", decoded);
 
     assert_eq!(original, decoded);
     Ok(())

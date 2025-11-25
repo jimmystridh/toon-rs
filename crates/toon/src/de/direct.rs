@@ -36,7 +36,13 @@ impl core::error::Error for DeError {}
 pub fn from_str<T: DeserializeOwned>(s: &str, options: &Options) -> Result<T> {
     let lines = scan(s);
     if options.strict {
-        if let Err(e) = crate::decode::validation::validate_indentation(&lines) {
+        // Collect raw lines for tab detection
+        let raw_lines: Vec<&str> = s.lines().collect();
+        if let Err(e) = crate::decode::validation::validate_indentation_with_size(
+            &lines,
+            &raw_lines,
+            options.indent,
+        ) {
             return Err(ToONError::Syntax {
                 line: e.line,
                 message: e.message,

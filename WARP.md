@@ -48,7 +48,7 @@ Fuzzing
 - Install cargo-fuzz: cargo install cargo-fuzz
 - Run structured fuzzing (uses nightly via helper script):
   - cd fuzz && ./fuzz.sh run fuzz_structured -- -max_total_time=600
-- Legacy targets are still available (`cargo fuzz run fuzz_decode_default -- -runs=0`, etc.) but the structured harness enforces canonical formatting guarantees for spec v1.4.
+- Legacy targets are still available (`cargo fuzz run fuzz_decode_default -- -runs=0`, etc.) but the structured harness enforces canonical formatting guarantees for spec v3.0.
 
 Architecture and structure (big picture)
 - Workspace
@@ -62,11 +62,12 @@ Architecture and structure (big picture)
 - Streaming serializer (crates/toon/src/ser/stream.rs)
   - Implements serde::Serializer that writes directly via LineWriter. Sequences are buffered as serde_json::Value to enable tabular detection; nested complex values reuse encode::encoders for consistency. Floats: finite as numbers; NaN/±Infinity as quoted strings.
 - Decoding (crates/toon/src/decode)
-  - scanner.rs tokenizes lines (Blank, Scalar, ListItem, KeyOnly, KeyValue) with quote-aware colon detection and treats '@…' header lines as scalar.
-  - parser.rs builds a serde_json::Value, handling objects, lists, and tabular blocks: parses header '@<delim> …', splits cells quote-aware, assembles rows as arrays of objects, and enforces strict table rules when enabled.
-  - validation.rs enforces indentation rules in strict mode: increases must be +2; decreases must be multiples of 2.
+  - scanner.rs tokenizes lines (Blank, Scalar, ListItem, KeyOnly, KeyValue) with quote-aware colon detection.
+  - parser.rs builds internal Value, handling objects, lists, and tabular blocks with new `[N]{fields}:` header format; enforces strict table rules when enabled.
+  - path_expand.rs implements dotted key expansion (e.g., `a.b.c: 1` → nested objects) when `expandPaths: safe`.
+  - validation.rs enforces indentation rules in strict mode: increases must match configured indent; decreases must be multiples of indent.
 - Strict mode and options
-  - Options { delimiter: Comma|Tab|Pipe, strict: bool } influence both encoding (active delimiter) and decoding (validation on). The CLI maps flags to Options.
+  - Options { delimiter, strict, indent, key_folding, flatten_depth, expand_paths } influence both encoding and decoding. The CLI maps flags to Options.
 
 Notes
 - rust-toolchain is stable; workspace edition is 2024.

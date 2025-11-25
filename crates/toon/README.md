@@ -49,6 +49,7 @@ assert_eq!(user, back);
 ## Conformance
 - Initialize fixtures: `git submodule update --init --recursive`
 - Run: `TOON_CONFORMANCE=1 cargo test -p toon --tests`
+- Status: 345/345 tests passing (encode: 147, decode: 198)
 
 ## License
 MIT

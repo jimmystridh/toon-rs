@@ -14,10 +14,9 @@ fn encode_simple_object() -> Result<(), Box<dyn std::error::Error>> {
 fn encode_nested_array() -> Result<(), Box<dyn std::error::Error>> {
     let v = json!({"list": [1, 2, 3]});
     let out = toon::encode_to_string(&v, &toon::Options::default())?;
-    assert!(out.contains("list:"));
-    assert!(out.contains("- 1"));
-    assert!(out.contains("- 2"));
-    assert!(out.contains("- 3"));
+    // Spec v3.0: inline primitive arrays use key[N]: v1,v2,v3 format
+    assert!(out.contains("list[3]"), "Output: {}", out);
+    assert!(out.contains("1,2,3"), "Output: {}", out);
     Ok(())
 }
 

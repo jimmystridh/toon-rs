@@ -43,6 +43,10 @@ pub fn json_to_toon(
             Delimiter::Comma
         },
         strict,
+        indent: 2,
+        key_folding: toon::KeyFolding::Off,
+        flatten_depth: None,
+        expand_paths: toon::ExpandPaths::Off,
     };
 
     // Encode to TOON
@@ -64,6 +68,10 @@ pub fn toon_to_json(toon_str: &str, strict: bool, pretty: bool) -> Result<String
     let options = Options {
         delimiter: Delimiter::Comma, // Delimiter is auto-detected during decode
         strict,
+        indent: 2,
+        key_folding: toon::KeyFolding::Off,
+        flatten_depth: None,
+        expand_paths: toon::ExpandPaths::Off,
     };
 
     // Decode from TOON

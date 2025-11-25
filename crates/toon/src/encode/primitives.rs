@@ -15,6 +15,57 @@ pub fn delimiter_char(delim: Delimiter) -> char {
     }
 }
 
+/// Returns the delimiter symbol for use inside bracket segments.
+/// Comma is represented by absence (returns None), tab and pipe are explicit.
+pub fn delimiter_symbol(delim: Delimiter) -> Option<char> {
+    match delim {
+        Delimiter::Comma => None,
+        Delimiter::Tab => Some('\t'),
+        Delimiter::Pipe => Some('|'),
+    }
+}
+
+/// Format an array header bracket segment: `[N]` or `[N<delim>]`
+pub fn format_bracket_segment(len: usize, delim: Delimiter) -> String {
+    match delimiter_symbol(delim) {
+        Some(sym) => format!("[{}{}]", len, sym),
+        None => format!("[{}]", len),
+    }
+}
+
+/// Format a tabular fields segment: `{f1,f2}` or `{f1<delim>f2}`
+pub fn format_fields_segment(fields: &[String], delim: Delimiter) -> String {
+    let dch = delimiter_char(delim);
+    let mut out = String::from("{");
+    for (i, f) in fields.iter().enumerate() {
+        if i > 0 {
+            out.push(dch);
+        }
+        out.push_str(f);
+    }
+    out.push('}');
+    out
+}
+
+/// Format a complete array header for inline primitive arrays: `[N]: ` or `[N<delim>]: `
+pub fn format_inline_array_header(len: usize, delim: Delimiter) -> String {
+    format!("{}: ", format_bracket_segment(len, delim))
+}
+
+/// Format a complete tabular array header: `[N]{f1,f2}:` or `[N<delim>]{f1<delim>f2}:`
+pub fn format_tabular_header(len: usize, fields: &[String], delim: Delimiter) -> String {
+    format!(
+        "{}{}:",
+        format_bracket_segment(len, delim),
+        format_fields_segment(fields, delim)
+    )
+}
+
+/// Format an expanded array header (no inline values): `[N]:` or `[N<delim>]:`
+pub fn format_expanded_array_header(len: usize, delim: Delimiter) -> String {
+    format!("{}:", format_bracket_segment(len, delim))
+}
+
 fn is_control(c: char) -> bool {
     let u = c as u32;
     u < 0x20 || u == 0x7F
@@ -39,11 +90,8 @@ pub fn needs_quotes(s: &str, delim: Delimiter) -> bool {
     if s == "-" {
         return true;
     }
-    if s.starts_with('-') && s.len() >= 2 && s.as_bytes()[1] == b' ' {
-        return true;
-    }
-    // Keys starting with @ could be confused with tabular array headers
-    if s.starts_with('@') {
+    // Any string starting with hyphen must be quoted (§7.2)
+    if s.starts_with('-') {
         return true;
     }
     if s.starts_with(' ') || s.ends_with(' ') {
@@ -53,6 +101,10 @@ pub fn needs_quotes(s: &str, delim: Delimiter) -> bool {
         return true;
     }
     if s.contains(':') {
+        return true;
+    }
+    // Brackets and braces are structural characters (§7.2)
+    if s.chars().any(|c| matches!(c, '[' | ']' | '{' | '}')) {
         return true;
     }
     if s.chars().any(|c| c == '"' || c == '\\' || is_control(c)) {
@@ -99,6 +151,36 @@ pub fn escape_and_quote(s: &str) -> String {
 
 pub fn format_string(s: &str, delim: Delimiter) -> String {
     if needs_quotes(s, delim) {
+        escape_and_quote(s)
+    } else {
+        s.to_string()
+    }
+}
+
+/// Check if a key needs quoting per §7.3
+/// Keys MAY be unquoted only if they match: ^[A-Za-z_][A-Za-z0-9_.]*$
+fn key_needs_quotes(s: &str) -> bool {
+    if s.is_empty() {
+        return true;
+    }
+    let mut chars = s.chars();
+    // First character must be letter or underscore
+    match chars.next() {
+        Some(c) if c.is_ascii_alphabetic() || c == '_' => {}
+        _ => return true,
+    }
+    // Rest must be alphanumeric, underscore, or dot
+    for c in chars {
+        if !c.is_ascii_alphanumeric() && c != '_' && c != '.' {
+            return true;
+        }
+    }
+    false
+}
+
+/// Format a key for output (§7.3)
+pub fn format_key(s: &str) -> String {
+    if key_needs_quotes(s) {
         escape_and_quote(s)
     } else {
         s.to_string()

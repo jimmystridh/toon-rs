@@ -23,11 +23,11 @@ fn encode_outputs_toon_like_syntax() -> Result<(), Box<dyn std::error::Error>> {
         .output()?;
     assert!(output.status.success());
     let out = String::from_utf8(output.stdout)?;
-    // Expect TOON-ish output with key lines and list markers
+    // Expect TOON v3-ish output: keyed inline array for primitives
     assert!(out.contains("a: 1"));
-    assert!(out.contains("b:"));
-    assert!(out.contains("- true"));
-    assert!(out.contains("- x") || out.contains("- \"x\""));
+    assert!(out.contains("b[2]"));
+    assert!(out.contains("true"));
+    assert!(out.contains("x") || out.contains("\"x\""));
     Ok(())
 }
 

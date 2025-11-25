@@ -18,7 +18,7 @@ pub mod de;
 pub mod ser;
 
 pub use crate::error::{Error, Result};
-pub use crate::options::{Delimiter, Options};
+pub use crate::options::{Delimiter, ExpandPaths, KeyFolding, Options};
 
 #[cfg(not(feature = "std"))]
 use alloc::string::String;

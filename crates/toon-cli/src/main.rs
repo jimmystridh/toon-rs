@@ -61,6 +61,10 @@ fn main() -> Result<()> {
     let options = toon::Options {
         delimiter,
         strict: args.strict,
+        indent: 2,
+        key_folding: toon::KeyFolding::Off,
+        flatten_depth: None,
+        expand_paths: toon::ExpandPaths::Off,
     };
 
     if args.decode {

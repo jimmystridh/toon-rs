@@ -22,7 +22,7 @@
 - **Tabular arrays**: Automatic CSV-like rendering for uniform object arrays
 - **Git-friendly**: Line-oriented format that plays well with version control diffs
 
-This repository provides a **complete Rust implementation** following the [official TOON v1.4 specification](https://github.com/toon-format/spec) with zero-copy parsing, streaming serialization via serde, and a full-featured CLI.
+This repository provides a **complete Rust implementation** following the [official TOON v3.0 specification](https://github.com/toon-format/spec) with zero-copy parsing, streaming serialization via serde, and a full-featured CLI.
 
 ## Why TOON?
 
@@ -31,10 +31,9 @@ This repository provides a **complete Rust implementation** following the [offic
 {"users": [{"id": 1, "name": "Alice", "role": "admin"}, {"id": 2, "name": "Bob", "role": "user"}]}
 
 // TOON: clean, structured, tabular when appropriate
-users:
-  @| id name  role
-  |  1  Alice admin
-  |  2  Bob   user
+users[2]{id,name,role}:
+  1,Alice,admin
+  2,Bob,user
 ```
 
 TOON automatically detects when arrays contain uniform objects and renders them as inline tables, dramatically improving readability for datasets while maintaining full structural fidelity.
@@ -43,14 +42,17 @@ TOON automatically detects when arrays contain uniform objects and renders them 
 
 - Zero-copy scanner and parser (borrowed slices) for fast decode
 - Direct serde::Deserializer over the scanner (feature `de_direct`)
-- Smart tabular arrays — CSV-like rows under a header for uniform object arrays
+- Smart tabular arrays — CSV-like rows under a `[N]{fields}:` header for uniform object arrays
 - Strict mode — Optional validation for production-grade data integrity
 - Streaming serialization — Memory-efficient encoding of large datasets
 - Full serde integration — Serialize/deserialize any Rust type with `#[derive]`
+- Key folding — Collapse nested single-key objects into dotted paths (`a.b.c: value`)
+- Path expansion — Decode dotted keys back into nested structures
 - DateTime support — Native `chrono` integration (optional feature)
 - Powerful CLI — Standalone tool for JSON ↔ TOON conversion
-- Spec conformant — Comprehensive test suite against official fixtures
+- Spec conformant — Full v3.0 test suite (345/345 tests passing)
 - Configurable delimiters — Use comma (default), tab, or pipe
+- Configurable indentation — Custom indent size (default: 2 spaces)
 - No-std support — Works in embedded environments (with `alloc`)
 
 ## Type Normalization
@@ -168,10 +170,9 @@ database:
   host: db.example.com
   port: 5432
   ssl: true
-servers:
-  @| name  region  capacity
-  |  web-1 us-east 1000
-  |  web-2 eu-west 1500
+servers[2]{name,region,capacity}:
+  web-1,us-east,1000
+  web-2,eu-west,1500
 ```
 
 ### CLI Usage
@@ -343,16 +344,18 @@ toon-rs/
 
 ## Specification
 
-This implementation follows the [official TOON v1.4 specification](https://github.com/toon-format/spec/blob/main/SPEC.md) with extensive conformance testing. Key features:
+This implementation follows the [official TOON v3.0 specification](https://github.com/toon-format/spec/blob/main/SPEC.md) with extensive conformance testing (345/345 tests passing). Key features:
 
 - **Line-oriented**: Each logical token on its own line (or tabular row)
-- **Indentation-based**: Two-space indentation indicates nesting
+- **Indentation-based**: Configurable indentation (default: 2 spaces)
 - **Minimal quoting**: Strings only quoted when necessary (delimiters, special chars)
-- **Tabular arrays**: Objects with identical primitive keys rendered as CSV-like tables
-- **Strict validation**: Optional mode catches malformed data
+- **Tabular arrays**: Compact `[N]{fields}:` header format for uniform object arrays
+- **Key folding**: Encode nested single-key paths as `a.b.c: value`
+- **Path expansion**: Decode dotted keys into nested objects (`expandPaths: safe`)
+- **Strict validation**: Optional mode catches malformed data and conflicts
 
 For the complete format specification and conformance tests, see:
-- [TOON Specification v1.4](https://github.com/toon-format/spec/blob/main/SPEC.md)
+- [TOON Specification v3.0](https://github.com/toon-format/spec/blob/main/SPEC.md)
 - [Conformance Test Suite](https://github.com/toon-format/spec/tree/main/tests)
 - [Official TypeScript Implementation](https://github.com/toon-format/toon)
 
@@ -415,7 +418,7 @@ This project is licensed under the MIT License - see the [LICENSE](LICENSE) file
 ## Related Projects
 
 - [Official TOON TypeScript/JavaScript](https://github.com/toon-format/toon) — Reference implementation with npm packages
-- [TOON Specification](https://github.com/toon-format/spec) — Format specification v1.3 and conformance tests
+- [TOON Specification](https://github.com/toon-format/spec) — Format specification v3.0 and conformance tests
 - [Other TOON implementations](https://github.com/toon-format/toon#other-implementations) — Community ports to Python, Go, .NET, Swift, and more
 
 ---

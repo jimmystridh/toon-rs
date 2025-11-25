@@ -10,17 +10,19 @@ fn encode_tabular_emits_header_and_rows() -> Result<(), Box<dyn std::error::Erro
         ]
     });
     let out = toon::encode_to_string(&v, &toon::Options::default())?;
-    // Header
-    assert!(out.contains("@, a, b") || out.contains("@, \"a\", \"b\""));
-    // Rows
-    assert!(out.contains("- 1, \"x\"") || out.contains("- 1, x"));
-    assert!(out.contains("- 2, \"y\"") || out.contains("- 2, y"));
+    // Header (spec v3): rows[2]{a,b}:
+    assert!(out.contains("rows[2]{a,b}:"));
+    // Rows (no hyphens; rows follow header at indent+2)
+    assert!(out.contains("\n  1,x\n"));
+    // Last row has no trailing newline (per spec §12)
+    assert!(out.ends_with("\n  2,y"));
     Ok(())
 }
 
 #[test]
 fn decode_tabular_to_objects() -> Result<(), Box<dyn std::error::Error>> {
-    let s = "rows:\n  @, a, b\n  - 1, \"x\"\n  - 2, \"y\"\n";
+    // Spec v3: keyed tabular array
+    let s = "rows[2]{a,b}:\n  1,x\n  2,y\n";
     let val: serde_json::Value = toon::decode_from_str(s, &toon::Options::default())?;
     assert_eq!(val, json!({"rows": [{"a":1, "b":"x"}, {"a":2, "b":"y"}]}));
     Ok(())

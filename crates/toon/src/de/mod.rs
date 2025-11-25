@@ -161,14 +161,27 @@ pub fn from_str<T: DeserializeOwned + 'static>(s: &str, options: &Options) -> Re
 fn from_str_via_internal_value<T: DeserializeOwned>(s: &str, options: &Options) -> Result<T> {
     let lines = crate::decode::scanner::scan(s);
     if options.strict {
-        if let Err(e) = crate::decode::validation::validate_indentation(&lines) {
+        // Collect raw lines for tab detection
+        let raw_lines: Vec<&str> = s.lines().collect();
+        if let Err(e) = crate::decode::validation::validate_indentation_with_size(
+            &lines,
+            &raw_lines,
+            options.indent,
+        ) {
             return Err(crate::error::Error::Syntax {
                 line: e.line,
                 message: e.message,
             });
         }
     }
-    let v = crate::decode::parser::parse_to_internal_value_from_lines(lines, options.strict)?;
+    let mut v = crate::decode::parser::parse_to_internal_value_from_lines(lines, options.strict)?;
+
+    // Apply path expansion if enabled
+    if options.expand_paths == crate::options::ExpandPaths::Safe {
+        v = crate::decode::path_expand::expand_paths(v, options.strict)
+            .map_err(crate::error::Error::Message)?;
+    }
+
     let deser = Deserializer::from_value(v);
     let t = T::deserialize(deser).map_err(|e: DeError| crate::error::Error::Message(e.msg))?;
     Ok(t)

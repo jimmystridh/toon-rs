@@ -44,7 +44,11 @@ impl LineWriter {
         self.out.push('\n');
     }
 
-    pub fn into_string(self) -> String {
+    pub fn into_string(mut self) -> String {
+        // Per spec §12: No trailing newline at the end of the document
+        if self.out.ends_with('\n') {
+            self.out.pop();
+        }
         self.out
     }
 }
