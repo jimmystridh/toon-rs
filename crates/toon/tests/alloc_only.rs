@@ -49,8 +49,9 @@ fn tabular_emission_alloc() -> Result<(), toon::Error> {
         ],
     };
     let s = toon::ser::to_string_streaming(&w, &toon::Options::default())?;
-    assert!(s.contains("@, a, b"));
-    assert!(s.contains("- 1, x") && s.contains("- 2, y"));
+    // v3.0 format: [N]{fields}: with inline rows (no list markers)
+    assert!(s.contains("[2]{a,b}:"));
+    assert!(s.contains("1,x") && s.contains("2,y"));
     Ok(())
 }
 

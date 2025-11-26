@@ -1,5 +1,8 @@
 #[cfg(not(feature = "std"))]
-use alloc::string::{String, ToString};
+use alloc::{
+    format,
+    string::{String, ToString},
+};
 
 #[cfg(feature = "std")]
 use std::string::String;

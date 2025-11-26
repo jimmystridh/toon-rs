@@ -12,7 +12,12 @@
 //! - In non-strict mode, later keys overwrite earlier ones (LWW)
 
 #[cfg(not(feature = "std"))]
-use alloc::{string::String, vec::Vec};
+use alloc::{
+    format,
+    string::{String, ToString},
+    vec,
+    vec::Vec,
+};
 
 use crate::value::Value;
 

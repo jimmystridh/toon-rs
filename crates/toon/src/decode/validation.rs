@@ -1,6 +1,9 @@
 //! Strict-mode validation
 #[cfg(not(feature = "std"))]
-use alloc::{format, string::String};
+use alloc::{
+    format,
+    string::{String, ToString},
+};
 
 #[derive(Debug)]
 pub struct ValidationError {

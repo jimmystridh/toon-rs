@@ -121,7 +121,8 @@ impl<'a> Parser<'a> {
             Some(NumHint::Float) => {
                 if let Ok(f) = s.parse::<f64>() {
                     // Normalize integer-valued floats to integers
-                    if f.is_finite() && f.fract() == 0.0 {
+                    // Use f % 1.0 instead of f.fract() for no_std compatibility
+                    if f.is_finite() && f % 1.0 == 0.0 {
                         if f >= 0.0 {
                             return Value::Number(Number::U64(f as u64));
                         } else {
