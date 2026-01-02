@@ -52,8 +52,8 @@ jobs:
       - uses: actions/checkout@v4
       - uses: dtolnay/rust-toolchain@stable
       - uses: Swatinem/rust-cache@v2
-      - run: cargo check -p toon --no-default-features --features "alloc,serde"
-      - run: cargo test -p toon --no-default-features --features "alloc,serde"
+      - run: cargo check -p toon-rs --no-default-features --features "alloc,serde"
+      - run: cargo test -p toon-rs --no-default-features --features "alloc,serde"
 
   test-json-feature:
     name: Check (json feature)
@@ -62,7 +62,7 @@ jobs:
       - uses: actions/checkout@v4
       - uses: dtolnay/rust-toolchain@stable
       - uses: Swatinem/rust-cache@v2
-      - run: cargo check -p toon --no-default-features --features "alloc,serde,json"
+      - run: cargo check -p toon-rs --no-default-features --features "alloc,serde,json"
 
   test-feature-matrix:
     name: Test (feature matrix)
@@ -77,7 +77,7 @@ jobs:
         run: echo "$HOME/.cargo/bin" >> $GITHUB_PATH
       - name: Run cargo-hack feature matrix
         run: >-
-          cargo hack test -p toon
+          cargo hack test -p toon-rs
           --features "alloc,serde"
           --feature-powerset
           --include-features "std,json,chrono,perf_memchr,perf_smallvec,perf_lexical,de_direct"
@@ -108,4 +108,4 @@ jobs:
         if: ${{ steps.fixtures.outputs.present == 'true' }}
         env:
           TOON_CONFORMANCE: '1'
-        run: cargo test -p toon --tests
+        run: cargo test -p toon-rs --tests
