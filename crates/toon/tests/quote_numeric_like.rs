@@ -1,5 +1,5 @@
 #![cfg(feature = "json")]
-use toon::Options;
+use toon_rs::Options;
 
 #[test]
 fn quote_numeric_like_strings() {
@@ -10,7 +10,7 @@ fn quote_numeric_like_strings() {
         "b": "true",
         "nulls": "null",
     });
-    let out = toon::encode_to_string(&v, &Options::default()).unwrap();
+    let out = toon_rs::encode_to_string(&v, &Options::default()).unwrap();
     assert!(out.contains("n1: \"01\""));
     assert!(out.contains("n2: \"+1.2\""));
     assert!(out.contains("n3: \"-3.4e5\""));

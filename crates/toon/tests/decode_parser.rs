@@ -1,6 +1,6 @@
 #![cfg(feature = "json")]
 use serde_json::json;
-use toon::decode::parser::parse_to_value;
+use toon_rs::decode::parser::parse_to_value;
 
 #[test]
 fn parse_object_and_list() {

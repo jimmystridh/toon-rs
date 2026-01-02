@@ -1,5 +1,5 @@
 #![cfg(feature = "json")]
-use toon::Options;
+use toon_rs::Options;
 
 #[test]
 fn encoder_quotes_numeric_bool_null_lookalikes() {
@@ -11,7 +11,7 @@ fn encoder_quotes_numeric_bool_null_lookalikes() {
         "f2": "-3.14",
         "z": "01"
     });
-    let out = toon::encode_to_string(&v, &Options::default()).unwrap();
+    let out = toon_rs::encode_to_string(&v, &Options::default()).unwrap();
     assert!(out.contains("t: \"true\""));
     assert!(out.contains("f: \"false\""));
     assert!(out.contains("n: \"null\""));

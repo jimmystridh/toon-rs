@@ -1,5 +1,5 @@
 use serde::{Deserialize, Serialize};
-use toon::Options;
+use toon_rs::Options;
 
 #[derive(Debug, Serialize, Deserialize, PartialEq)]
 struct Data {
@@ -14,7 +14,7 @@ struct Wrapper {
 #[test]
 fn unquoting_preserves_strings_with_delimiters_and_colons() {
     let s = "d:\n  @, s\n  - \"a,b:c\"\n";
-    let out: Wrapper = toon::de::from_str(s, &Options::default()).unwrap();
+    let out: Wrapper = toon_rs::de::from_str(s, &Options::default()).unwrap();
     assert_eq!(
         out,
         Wrapper {

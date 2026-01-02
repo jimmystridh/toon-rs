@@ -913,7 +913,21 @@ dependencies = [
 ]
 
 [[package]]
-name = "toon"
+name = "toon-cli"
+version = "0.1.0"
+dependencies = [
+ "anyhow",
+ "assert_cmd",
+ "clap",
+ "predicates",
+ "serde",
+ "serde_json",
+ "tempfile",
+ "toon-rs",
+]
+
+[[package]]
+name = "toon-rs"
 version = "0.1.0"
 dependencies = [
  "chrono",
@@ -929,27 +943,13 @@ dependencies = [
 ]
 
 [[package]]
-name = "toon-cli"
-version = "0.1.0"
-dependencies = [
- "anyhow",
- "assert_cmd",
- "clap",
- "predicates",
- "serde",
- "serde_json",
- "tempfile",
- "toon",
-]
-
-[[package]]
 name = "toon-wasm"
 version = "0.1.0"
 dependencies = [
  "console_error_panic_hook",
  "serde",
  "serde_json",
- "toon",
+ "toon-rs",
  "wasm-bindgen",
  "web-sys",
  "wee_alloc",

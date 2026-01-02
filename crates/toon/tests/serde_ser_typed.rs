@@ -1,6 +1,6 @@
 #![cfg(feature = "json")]
 use serde::{Deserialize, Serialize};
-use toon::Options;
+use toon_rs::Options;
 
 #[derive(Debug, Serialize, Deserialize, PartialEq)]
 struct Row {
@@ -27,7 +27,7 @@ fn ser_typed_emits_tabular() -> Result<(), Box<dyn std::error::Error>> {
             },
         ],
     };
-    let out = toon::ser::to_string(&value, &Options::default())?;
+    let out = toon_rs::ser::to_string(&value, &Options::default())?;
     // Spec v3.0: tabular arrays use rows[N]{fields}: format
     assert!(out.contains("rows[2]{a,b}:"), "Output: {}", out);
     // Rows are at indent+2, values comma-separated

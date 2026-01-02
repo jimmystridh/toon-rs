@@ -77,19 +77,19 @@ fn should_run() -> bool {
     std::env::var("TOON_CONFORMANCE").ok().as_deref() == Some("1")
 }
 
-fn make_encode_options(opts: &TestOptions) -> toon::Options {
-    let mut o = toon::Options::default();
+fn make_encode_options(opts: &TestOptions) -> toon_rs::Options {
+    let mut o = toon_rs::Options::default();
     if let Some(ref d) = opts.delimiter {
         o.delimiter = match d.as_str() {
-            "\t" => toon::Delimiter::Tab,
-            "|" => toon::Delimiter::Pipe,
-            _ => toon::Delimiter::Comma,
+            "\t" => toon_rs::Delimiter::Tab,
+            "|" => toon_rs::Delimiter::Pipe,
+            _ => toon_rs::Delimiter::Comma,
         };
     }
     if let Some(ref kf) = opts.key_folding {
         o.key_folding = match kf.as_str() {
-            "safe" => toon::KeyFolding::Safe,
-            _ => toon::KeyFolding::Off,
+            "safe" => toon_rs::KeyFolding::Safe,
+            _ => toon_rs::KeyFolding::Off,
         };
     }
     if let Some(fd) = opts.flatten_depth {
@@ -101,8 +101,8 @@ fn make_encode_options(opts: &TestOptions) -> toon::Options {
     o
 }
 
-fn make_decode_options(opts: &TestOptions) -> toon::Options {
-    let mut o = toon::Options::default();
+fn make_decode_options(opts: &TestOptions) -> toon_rs::Options {
+    let mut o = toon_rs::Options::default();
     if let Some(strict) = opts.strict {
         o.strict = strict;
     }
@@ -111,8 +111,8 @@ fn make_decode_options(opts: &TestOptions) -> toon::Options {
     }
     if let Some(ref ep) = opts.expand_paths {
         o.expand_paths = match ep.as_str() {
-            "safe" => toon::ExpandPaths::Safe,
-            _ => toon::ExpandPaths::Off,
+            "safe" => toon_rs::ExpandPaths::Safe,
+            _ => toon_rs::ExpandPaths::Off,
         };
     }
     o
@@ -175,7 +175,7 @@ fn decode_fixtures() -> Result<(), Box<dyn std::error::Error>> {
             };
 
             let opts = make_decode_options(&test.options);
-            let result: Result<serde_json::Value, _> = toon::decode_from_str(&toon_input, &opts);
+            let result: Result<serde_json::Value, _> = toon_rs::decode_from_str(&toon_input, &opts);
 
             if test.should_error {
                 if result.is_err() {
@@ -283,7 +283,7 @@ fn encode_fixtures() -> Result<(), Box<dyn std::error::Error>> {
             };
 
             let opts = make_encode_options(&test.options);
-            let result = toon::encode_to_string(&test.input, &opts);
+            let result = toon_rs::encode_to_string(&test.input, &opts);
 
             if test.should_error {
                 if result.is_err() {

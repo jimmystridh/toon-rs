@@ -14,7 +14,7 @@ struct Wrapper {
 }
 
 #[test]
-fn typed_roundtrip_alloc() -> Result<(), toon::Error> {
+fn typed_roundtrip_alloc() -> Result<(), toon_rs::Error> {
     let w = Wrapper {
         rows: vec![
             Row {
@@ -27,15 +27,15 @@ fn typed_roundtrip_alloc() -> Result<(), toon::Error> {
             },
         ],
     };
-    let opts = toon::Options::default();
-    let s = toon::ser::to_string_streaming(&w, &opts)?;
-    let back: Wrapper = toon::de::from_str(&s, &opts)?;
+    let opts = toon_rs::Options::default();
+    let s = toon_rs::ser::to_string_streaming(&w, &opts)?;
+    let back: Wrapper = toon_rs::de::from_str(&s, &opts)?;
     assert_eq!(w, back);
     Ok(())
 }
 
 #[test]
-fn tabular_emission_alloc() -> Result<(), toon::Error> {
+fn tabular_emission_alloc() -> Result<(), toon_rs::Error> {
     let w = Wrapper {
         rows: vec![
             Row {
@@ -48,7 +48,7 @@ fn tabular_emission_alloc() -> Result<(), toon::Error> {
             },
         ],
     };
-    let s = toon::ser::to_string_streaming(&w, &toon::Options::default())?;
+    let s = toon_rs::ser::to_string_streaming(&w, &toon_rs::Options::default())?;
     // v3.0 format: [N]{fields}: with inline rows (no list markers)
     assert!(s.contains("[2]{a,b}:"));
     assert!(s.contains("1,x") && s.contains("2,y"));
@@ -58,9 +58,9 @@ fn tabular_emission_alloc() -> Result<(), toon::Error> {
 #[test]
 fn strict_indent_error_alloc() {
     let s = "a:\n    b: 1\n"; // invalid +4
-    let mut opts = toon::Options::default();
+    let mut opts = toon_rs::Options::default();
     opts.strict = true;
-    let err = toon::de::from_str::<serde::de::IgnoredAny>(s, &opts).unwrap_err();
+    let err = toon_rs::de::from_str::<serde::de::IgnoredAny>(s, &opts).unwrap_err();
     let msg = err.to_string();
     assert!(msg.contains("indent") || msg.contains("syntax"));
 }

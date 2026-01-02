@@ -1,12 +1,12 @@
 [package]
-name = "toon"
+name = "toon-rs"
 version = "0.1.0"
 description = "TOON format encoder/decoder with serde integration"
 edition.workspace = true
 rust-version.workspace = true
 license.workspace = true
 readme = "README.md"
-repository = "https://github.com/toon-format/toon"
+repository = "https://github.com/jimmystridh/toon-rs"
 homepage = "https://toonformat.dev"
 keywords = ["toon", "serialization", "serde"]
 categories = ["encoding", "parser-implementations"]

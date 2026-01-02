@@ -1,4 +1,4 @@
-use toon::decode::scanner::{LineKind, scan};
+use toon_rs::decode::scanner::{LineKind, scan};
 
 #[test]
 fn scan_basic_object_and_list() {

@@ -1,6 +1,6 @@
 #![cfg(feature = "json")]
 use serde_json::json;
-use toon::encode::encoders::is_tabular_array;
+use toon_rs::encode::encoders::is_tabular_array;
 
 #[test]
 fn tabular_detection_positive() {

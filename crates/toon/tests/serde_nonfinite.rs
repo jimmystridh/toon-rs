@@ -15,7 +15,7 @@ fn serialize_non_finite_floats_as_strings() {
         b: f64::INFINITY,
         c: f64::NEG_INFINITY,
     };
-    let out = toon::ser::to_string(&v, &toon::Options::default()).unwrap();
+    let out = toon_rs::ser::to_string(&v, &toon_rs::Options::default()).unwrap();
     assert!(out.contains("a: null"));
     assert!(out.contains("b: null"));
     assert!(out.contains("c: null"));

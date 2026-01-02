@@ -1,6 +1,6 @@
 #![cfg(all(feature = "serde", feature = "de_direct"))]
 use serde::Deserialize;
-use toon::{Options, decode_from_str};
+use toon_rs::{Options, decode_from_str};
 
 #[derive(Debug, Deserialize, PartialEq)]
 struct User {
