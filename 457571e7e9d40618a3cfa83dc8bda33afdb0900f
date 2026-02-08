@@ -1,0 +1,23 @@
+crates/toon/tests/alloc_only.rs
+  611e261e373b111c 60-61,64
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.0.42",
+  "base_commit_sha": "457571e7e9d40618a3cfa83dc8bda33afdb0900f",
+  "prompts": {
+    "611e261e373b111c": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "cd35b3ed-41d2-4a25-973a-1ac3c08f9f83",
+        "model": "claude-opus-4-6"
+      },
+      "human_author": "Jimmy Stridh <jimmystridh@users.noreply.github.com>",
+      "messages": [],
+      "total_additions": 3,
+      "total_deletions": 4,
+      "accepted_lines": 3,
+      "overriden_lines": 0
+    }
+  }
+}
