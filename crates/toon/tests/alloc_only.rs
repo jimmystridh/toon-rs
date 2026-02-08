@@ -57,10 +57,9 @@ fn tabular_emission_alloc() -> Result<(), toon_rs::Error> {
 
 #[test]
 fn strict_indent_error_alloc() {
-    let s = "a:\n    b: 1\n"; // invalid +4
-    let mut opts = toon_rs::Options::default();
-    opts.strict = true;
+    let s = "a:\n   b: 1\n"; // 3-space indent is not a multiple of 2
+    let opts = toon_rs::Options::default();
     let err = toon_rs::de::from_str::<serde::de::IgnoredAny>(s, &opts).unwrap_err();
     let msg = err.to_string();
-    assert!(msg.contains("indent") || msg.contains("syntax"));
+    assert!(msg.contains("indent") || msg.contains("multiple") || msg.contains("syntax"));
 }
