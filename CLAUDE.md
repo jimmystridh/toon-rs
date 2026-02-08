@@ -20,14 +20,14 @@ cargo test --workspace
 
 # Run conformance tests (requires spec submodule)
 git submodule update --init --recursive
-TOON_CONFORMANCE=1 cargo test -p toon --tests
+TOON_CONFORMANCE=1 cargo test -p toon-rs --tests
 
 # Run specific conformance test groups
-TOON_CONFORMANCE=1 cargo test -p toon --test spec_conformance decode_fixtures
-TOON_CONFORMANCE=1 cargo test -p toon --test spec_conformance encode_fixtures
+TOON_CONFORMANCE=1 cargo test -p toon-rs --test spec_conformance decode_fixtures
+TOON_CONFORMANCE=1 cargo test -p toon-rs --test spec_conformance encode_fixtures
 
 # Run just one test file
-cargo test -p toon --test roundtrip
+cargo test -p toon-rs --test roundtrip
 
 # Format and lint
 cargo fmt --all
@@ -64,11 +64,11 @@ cd fuzz
 
 ### Key Concepts
 
-**Tabular Arrays**: Arrays of uniform objects with identical primitive keys are automatically rendered as CSV-like tables with `@|` header and `|` row markers. Detection logic is in `encode/encoders.rs`.
+**Tabular Arrays**: Arrays of uniform objects with identical primitive keys are automatically rendered as CSV-like tables with `key[N]{fields}:` header and delimiter-separated rows. Detection logic is in `encode/encoders.rs`.
 
-**Strict Mode**: When `Options::strict` is true, validation catches malformed TOON (inconsistent indentation, unquoted cells, trailing delimiters, etc.). Essential for conformance.
+**Strict Mode**: When `Options::strict` is true (default), validation catches malformed TOON (inconsistent indentation, unquoted cells, trailing delimiters, etc.). Essential for conformance.
 
-**Delimiters**: Tables support `|` (default) or `,` delimiters via `Options::delimiter`. Affects quoting logic in `encode/primitives.rs`.
+**Delimiters**: Tables support `,` (default), `|`, or tab delimiters via `Options::delimiter`. Affects quoting logic in `encode/primitives.rs`.
 
 **Zero-copy parsing**: The parser uses string slices (`&str`) from the original input where possible to minimize allocations.
 
@@ -82,7 +82,7 @@ cd fuzz
 ## Testing Strategy
 
 - `tests/*_*.rs`: Unit and integration tests organized by feature
-- `tests/spec_conformance.rs`: Official TOON v1.3 spec conformance (decode runs with strict validation)
+- `tests/spec_conformance.rs`: Official TOON v3.0 spec conformance (decode runs with strict validation)
 - `tests/roundtrip.rs`: Encode → decode identity tests
 - Test files use descriptive names like `strict_unquoted_cells.rs`, `tabular_detection.rs`
 
@@ -96,9 +96,11 @@ cd fuzz
 
 ## Specification Reference
 
-Follows [TOON v1.3 spec](https://github.com/toon-format/spec/blob/main/SPEC.md). Key rules:
+Follows [TOON v3.0 spec](https://github.com/toon-format/spec/blob/main/SPEC.md). Key rules:
 - Two-space indentation for nesting
 - Keys followed by `:` on separate line from values (except scalars)
 - Strings quoted only when needed (contain delimiters, special chars, numeric-like)
 - Tabular arrays must have identical primitive keys across all objects
-- Strict mode enforces spec compliance for production use
+- Strict mode enforces spec compliance (default: true per spec)
+- Key folding (encoding) and path expansion (decoding) supported in safe mode
+- List-item objects with tabular first field use YAML-style encoding (§10)

@@ -1,6 +1,6 @@
 [package]
 name = "toon-rs"
-version = "2.1.0"
+version = "3.0.0"
 description = "TOON format encoder/decoder with serde integration"
 edition.workspace = true
 rust-version.workspace = true

@@ -40,19 +40,19 @@ pub fn stream_benchmarks(c: &mut Criterion) {
             b.iter_batched(
                 || data.clone(),
                 |d| {
-                    let out =
-                        toon::ser::to_string_streaming(&d, &toon::Options::default()).unwrap();
+                    let out = toon_rs::ser::to_string_streaming(&d, &toon_rs::Options::default())
+                        .unwrap();
                     black_box(out)
                 },
                 BatchSize::SmallInput,
             )
         });
         group.bench_function(format!("de_from_str::{n}"), |b| {
-            let s = toon::ser::to_string_streaming(&data, &toon::Options::default()).unwrap();
+            let s = toon_rs::ser::to_string_streaming(&data, &toon_rs::Options::default()).unwrap();
             b.iter_batched(
                 || s.clone(),
                 |ss| {
-                    let d: Data = toon::de::from_str(&ss, &toon::Options::default()).unwrap();
+                    let d: Data = toon_rs::de::from_str(&ss, &toon_rs::Options::default()).unwrap();
                     black_box(d)
                 },
                 BatchSize::SmallInput,

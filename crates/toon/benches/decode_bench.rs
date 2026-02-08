@@ -58,7 +58,7 @@ pub fn decode_benchmarks(c: &mut Criterion) {
                 || toon.clone(),
                 |s| {
                     let v: serde_json::Value =
-                        toon::decode_from_str(&s, &toon::Options::default()).unwrap();
+                        toon_rs::decode_from_str(&s, &toon_rs::Options::default()).unwrap();
                     black_box(v)
                 },
                 BatchSize::SmallInput,
@@ -68,9 +68,9 @@ pub fn decode_benchmarks(c: &mut Criterion) {
             b.iter_batched(
                 || toon.clone(),
                 |s| {
-                    let mut opts = toon::Options::default();
+                    let mut opts = toon_rs::Options::default();
                     opts.strict = true;
-                    let v: serde_json::Value = toon::decode_from_str(&s, &opts).unwrap();
+                    let v: serde_json::Value = toon_rs::decode_from_str(&s, &opts).unwrap();
                     black_box(v)
                 },
                 BatchSize::SmallInput,

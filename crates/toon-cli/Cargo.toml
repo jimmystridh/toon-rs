@@ -21,7 +21,7 @@ anyhow = "1.0"
 clap = { version = "4.5", features = ["derive"] }
 serde = { version = "1.0", features = ["derive"] }
 serde_json = "1.0"
-toon = { package = "toon-rs", version = "2.1.0", path = "../toon", features = ["serde", "json"] }
+toon = { package = "toon-rs", version = "3.0.0", path = "../toon", features = ["serde", "json"] }
 
 [dev-dependencies]
 assert_cmd = "2.0"

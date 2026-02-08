@@ -45,7 +45,7 @@ impl Default for Options {
     fn default() -> Self {
         Self {
             delimiter: Delimiter::default(),
-            strict: false,
+            strict: true,
             indent: 2,
             key_folding: KeyFolding::Off,
             flatten_depth: None,

@@ -84,7 +84,7 @@ pub fn encode_benchmarks(c: &mut Criterion) {
             b.iter_batched(
                 || v.clone(),
                 |vv| {
-                    let out = toon::encode_to_string(&vv, &toon::Options::default()).unwrap();
+                    let out = toon_rs::encode_to_string(&vv, &toon_rs::Options::default()).unwrap();
                     black_box(out)
                 },
                 BatchSize::SmallInput,
@@ -94,8 +94,8 @@ pub fn encode_benchmarks(c: &mut Criterion) {
             b.iter_batched(
                 || v.clone(),
                 |vv| {
-                    let out =
-                        toon::ser::to_string_streaming(&vv, &toon::Options::default()).unwrap();
+                    let out = toon_rs::ser::to_string_streaming(&vv, &toon_rs::Options::default())
+                        .unwrap();
                     black_box(out)
                 },
                 BatchSize::SmallInput,

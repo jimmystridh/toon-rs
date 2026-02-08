@@ -27,8 +27,8 @@ struct Args {
     #[arg(long, value_enum, default_value_t = DelimArg::Comma)]
     delimiter: DelimArg,
 
-    /// Strict mode validation
-    #[arg(long, default_value_t = false)]
+    /// Strict mode validation (enabled by default per spec)
+    #[arg(long, default_value_t = true)]
     strict: bool,
 
     /// Pretty-print JSON on output (when decoding)
