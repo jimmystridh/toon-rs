@@ -50,7 +50,7 @@ TOON automatically detects when arrays contain uniform objects and renders them 
 - Path expansion — Decode dotted keys back into nested structures
 - DateTime support — Native `chrono` integration (optional feature)
 - Powerful CLI — Standalone tool for JSON ↔ TOON conversion
-- Spec conformant — Full v3.0 test suite (345/345 tests passing)
+- Spec conformant — Full conformance suite from spec release v3.0.3 (358/358 tests passing)
 - Configurable delimiters — Use comma (default), tab, or pipe
 - Configurable indentation — Custom indent size (default: 2 spaces)
 - No-std support — Works in embedded environments (with `alloc`)
@@ -344,7 +344,7 @@ toon-rs/
 
 ## Specification
 
-This implementation follows the [official TOON v3.0 specification](https://github.com/toon-format/spec/blob/main/SPEC.md) with extensive conformance testing (345/345 tests passing). Key features:
+This implementation follows the [official TOON v3.0 specification](https://github.com/toon-format/spec/blob/main/SPEC.md) with extensive conformance testing against the v3.0.3 fixture release (358/358 tests passing). Key features:
 
 - **Line-oriented**: Each logical token on its own line (or tabular row)
 - **Indentation-based**: Configurable indentation (default: 2 spaces)
