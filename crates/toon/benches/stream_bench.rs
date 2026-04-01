@@ -1,5 +1,5 @@
 use criterion::{BatchSize, Criterion, Throughput, black_box, criterion_group, criterion_main};
-use rand::{Rng, SeedableRng, rngs::StdRng};
+use rand::{RngExt, SeedableRng, rngs::StdRng};
 use serde::{Deserialize, Serialize};
 
 #[derive(Debug, Serialize, Deserialize, Clone)]
@@ -19,12 +19,12 @@ fn gen_data(n: usize) -> Data {
     let mut rows = Vec::with_capacity(n);
     for i in 0..n as u32 {
         let s = (0..8)
-            .map(|_| (b'a' + (rng.r#gen::<u8>() % 26)) as char)
+            .map(|_| (b'a' + (rng.random::<u8>() % 26)) as char)
             .collect::<String>();
         rows.push(Row {
             a: i,
             b: s,
-            c: rng.gen_bool(0.5),
+            c: rng.random_bool(0.5),
         });
     }
     Data { rows }
