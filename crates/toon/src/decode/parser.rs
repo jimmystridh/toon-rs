@@ -817,26 +817,24 @@ impl<'a> Parser<'a> {
                         }
                     }
                 }
-                LineKind::KeyValue { key, value } => {
+                LineKind::KeyValue { key, value } if key.starts_with('[') => {
                     // Check for inline root arrays like [N]: v1,v2
-                    if key.starts_with('[') {
-                        let combined = format!("{}: {}", key, value);
-                        if let Some(header) = parse_array_header(&combined) {
-                            if header.key.is_none() {
-                                self.next();
-                                if let Some(ref inline) = header.inline_values {
-                                    if !inline.is_empty() {
-                                        let values = split_delim_aware(inline, header.delimiter);
-                                        return Value::Array(
-                                            values
-                                                .into_iter()
-                                                .map(|v| self.parse_scalar_token(v))
-                                                .collect(),
-                                        );
-                                    }
+                    let combined = format!("{}: {}", key, value);
+                    if let Some(header) = parse_array_header(&combined) {
+                        if header.key.is_none() {
+                            self.next();
+                            if let Some(ref inline) = header.inline_values {
+                                if !inline.is_empty() {
+                                    let values = split_delim_aware(inline, header.delimiter);
+                                    return Value::Array(
+                                        values
+                                            .into_iter()
+                                            .map(|v| self.parse_scalar_token(v))
+                                            .collect(),
+                                    );
                                 }
-                                return Value::Array(Vec::new());
                             }
+                            return Value::Array(Vec::new());
                         }
                     }
                 }
@@ -891,12 +889,10 @@ impl<'a> Parser<'a> {
                             }
                         }
                     }
-                    LineKind::Scalar(s) => {
+                    LineKind::Scalar(s) if is_array_header_line(s) || s.starts_with('[') => {
                         // Scalar might be a complete header with inline values
-                        if is_array_header_line(s) || s.starts_with('[') {
-                            if let Some(header) = parse_array_header(s) {
-                                return self.parse_root_array_with_header(header);
-                            }
+                        if let Some(header) = parse_array_header(s) {
+                            return self.parse_root_array_with_header(header);
                         }
                     }
                     _ => {}

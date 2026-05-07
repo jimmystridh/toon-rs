@@ -1,4 +1,6 @@
-use criterion::{BatchSize, Criterion, Throughput, black_box, criterion_group, criterion_main};
+use std::hint::black_box;
+
+use criterion::{BatchSize, Criterion, Throughput, criterion_group, criterion_main};
 use std::{fs, path::PathBuf};
 
 fn fixtures_decode() -> Vec<(String, String)> {
@@ -68,8 +70,10 @@ pub fn decode_benchmarks(c: &mut Criterion) {
             b.iter_batched(
                 || toon.clone(),
                 |s| {
-                    let mut opts = toon_rs::Options::default();
-                    opts.strict = true;
+                    let opts = toon_rs::Options {
+                        strict: true,
+                        ..toon_rs::Options::default()
+                    };
                     let v: serde_json::Value = toon_rs::decode_from_str(&s, &opts).unwrap();
                     black_box(v)
                 },

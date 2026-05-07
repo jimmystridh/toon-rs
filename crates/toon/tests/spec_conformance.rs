@@ -178,19 +178,15 @@ fn decode_fixtures() -> Result<(), Box<dyn std::error::Error>> {
             let result: Result<serde_json::Value, _> = toon_rs::decode_from_str(&toon_input, &opts);
 
             if test.should_error {
-                if result.is_err() {
-                    passed += 1;
-                } else {
-                    eprintln!(
-                        "    FAIL {}: expected error but got {:?}",
-                        test.name,
-                        result.unwrap()
-                    );
+                if let Ok(got) = result {
+                    eprintln!("    FAIL {}: expected error but got {:?}", test.name, got);
                     failed_tests.push(format!(
                         "decode/{}: {}",
                         path.file_name().unwrap().to_string_lossy(),
                         test.name
                     ));
+                } else {
+                    passed += 1;
                 }
             } else {
                 match result {
@@ -286,19 +282,15 @@ fn encode_fixtures() -> Result<(), Box<dyn std::error::Error>> {
             let result = toon_rs::encode_to_string(&test.input, &opts);
 
             if test.should_error {
-                if result.is_err() {
-                    passed += 1;
-                } else {
-                    eprintln!(
-                        "    FAIL {}: expected error but got {:?}",
-                        test.name,
-                        result.unwrap()
-                    );
+                if let Ok(got) = result {
+                    eprintln!("    FAIL {}: expected error but got {:?}", test.name, got);
                     failed_tests.push(format!(
                         "encode/{}: {}",
                         path.file_name().unwrap().to_string_lossy(),
                         test.name
                     ));
+                } else {
+                    passed += 1;
                 }
             } else {
                 match result {
